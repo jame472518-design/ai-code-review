@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+import openai
+from openai import OpenAI
+
+from .base import LLMProvider, ReviewResult
+from ..exceptions import ProviderError
+from ..prompts import REVIEW_RESPONSE_SCHEMA, get_commit_improve_prompt, get_generate_commit_prompt
+
+
+class OpenAIProvider(LLMProvider):
+    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: str | None = None, timeout: float = 120.0) -> None:
+        self._model = model
+        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, max_retries=3)
+
+    def health_check(self) -> tuple[bool, str]:
+        try:
+            self._client.models.list()
+            return True, "Connected"
+        except Exception as e:
+            return False, str(e)
+
+    def review_code(self, diff: str, prompt: str) -> ReviewResult:
+        full_prompt = f"{prompt}\n\n{REVIEW_RESPONSE_SCHEMA}\n\nDiff:\n{diff}"
+        content = self._chat(full_prompt)
+        return self._parse_review(content)
+
+    def improve_commit_msg(self, message: str, diff: str) -> str:
+        prompt = get_commit_improve_prompt(message, diff)
+        return self._chat(prompt).strip()
+
+    def generate_commit_msg(self, diff: str) -> str:
+        prompt = get_generate_commit_prompt(diff)
+        return self._chat(prompt).strip()
+
+    def _chat(self, prompt: str) -> str:
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.choices[0].message.content
+        except openai.APIError as e:
+            raise ProviderError(f"OpenAI API request failed: {e}") from e

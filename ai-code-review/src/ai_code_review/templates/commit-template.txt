@@ -1,0 +1,12 @@
+[tag] short description
+
+# ---- Commit Message Format ----
+# [tag] must be present. Examples:
+#   [fix] resolve camera crash on boot
+#   [feat] add hand tracking support
+#   [refactor] simplify game state machine
+#   [PROJ-1] update leaderboard logic
+#
+# Common tags: fix, feat, refactor, docs, test, chore
+# Or use project ID: [BSP-456], [FRUIT-1], etc.
+# Lines starting with '#' will be ignored by git.
