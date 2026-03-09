@@ -621,7 +621,8 @@ def config_show(section: str | None) -> None:
 
 
 @config_group.command("init-template")
-def config_init_template() -> None:
+@click.option("--force", is_flag=True, help="Overwrite existing template file.")
+def config_init_template(force: bool) -> None:
     """Copy bundled commit template to config dir and set config."""
     import importlib.resources
 
@@ -634,6 +635,12 @@ def config_init_template() -> None:
     dest_dir = Path.home() / ".config" / "ai-code-review"
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / DEFAULT_COMMIT_TEMPLATE_FILE
+
+    if dest.exists() and not force:
+        console.print(f"[yellow]Template already exists: {dest}[/]")
+        console.print("[yellow]Use --force to overwrite.[/]")
+        return
+
     dest.write_text(content, encoding="utf-8")
     console.print(f"[green]Template copied to: {dest}[/]")
 
