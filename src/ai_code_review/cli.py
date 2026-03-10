@@ -320,6 +320,105 @@ def _load_template(config: Config) -> str:
     return "[tag] description\n"
 
 
+def _parse_template_fields(template_content: str) -> list[dict]:
+    """Parse template into structured fields.
+
+    Rules:
+    - Consecutive [brackets] on one line (e.g. [tag][cat]) = inline fields, each prompted
+    - Text after brackets on same line (e.g. "short description") = inline field
+    - [bracket] followed by sub-lines (1. 2. or text) = section title with sub-items
+    """
+    import re
+
+    lines = [
+        line for line in template_content.splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    if not lines:
+        return []
+
+    fields: list[dict] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.strip().startswith("["):
+            # Check if next lines are sub-items (not starting with [)
+            sub_items = []
+            j = i + 1
+            while j < len(lines) and not lines[j].strip().startswith("["):
+                sub_items.append(lines[j].strip())
+                j += 1
+
+            if sub_items:
+                # Section title with sub-items
+                # Extract title from [brackets]
+                title_match = re.match(r"\[(.+?)\]", line.strip())
+                title = title_match.group(1) if title_match else line.strip()
+                fields.append({
+                    "type": "section",
+                    "title": title,
+                    "items": sub_items,
+                })
+                i = j
+            else:
+                # Inline fields: parse all [xxx] and trailing text
+                brackets = re.findall(r"\[(.+?)\]", line)
+                trailing = re.sub(r"\[.+?\]", "", line).strip()
+                for b in brackets:
+                    fields.append({"type": "inline", "label": b})
+                if trailing:
+                    fields.append({"type": "inline", "label": trailing})
+                i += 1
+        else:
+            i += 1
+
+    return fields
+
+
+def _interactive_template_input(template_content: str) -> str | None:
+    """Prompt user to fill in each template field, return combined draft or None."""
+    fields = _parse_template_fields(template_content)
+    if not fields:
+        # No template — fallback to free-form input
+        console.print("[dim]Enter your draft message (press Enter twice to finish):[/]")
+        lines = []
+        try:
+            while True:
+                line = input()
+                if line == "" and lines and lines[-1] == "":
+                    break
+                lines.append(line)
+        except EOFError:
+            pass
+        result = "\n".join(lines).strip()
+        return result if result else None
+
+    console.print("[dim]Fill in each field (leave empty to skip):[/]")
+    output_parts = []
+
+    try:
+        for f in fields:
+            if f["type"] == "inline":
+                val = input(f"  [bold cyan]{f['label']}[/]: " if console.is_terminal else f"  {f['label']}: ")
+                output_parts.append(f"{f['label']}: {val.strip()}" if val.strip() else "")
+            elif f["type"] == "section":
+                console.print(f"  [bold yellow]{f['title']}[/]")
+                section_lines = []
+                for item in f["items"]:
+                    val = input(f"    {item} ")
+                    section_lines.append(f"{item} {val.strip()}" if val.strip() else item)
+                output_parts.append(f"{f['title']}:\n" + "\n".join(section_lines))
+    except (EOFError, KeyboardInterrupt):
+        console.print("[yellow]Cancelled.[/]")
+        return None
+
+    result = "\n".join(p for p in output_parts if p).strip()
+    if not result:
+        console.print("[yellow]Empty draft, skipping.[/]")
+        return None
+    return result
+
+
 @main.command("prepare-interactive")
 @click.argument("message_file")
 @click.argument("source", required=False, default="")
@@ -402,35 +501,10 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
                 line for line in current.splitlines() if not line.startswith("#")
             ).strip()
             if not current:
-                # Parse template into fields and prompt each one
-                template_lines = [
-                    line for line in template_content.splitlines()
-                    if line.strip() and not line.startswith("#")
-                ]
-                if template_lines:
-                    console.print("[dim]Fill in each field (leave empty to skip):[/]")
-                    filled_lines = []
-                    try:
-                        for tline in template_lines:
-                            user_input = input(f"  {tline}: ")
-                            filled_lines.append(user_input.strip() if user_input.strip() else "")
-                    except (EOFError, KeyboardInterrupt):
-                        console.print("[yellow]Cancelled.[/]")
-                        return
-                    current = "\n".join(filled_lines).strip()
-                else:
-                    # No template — fallback to free-form input
-                    console.print("[dim]Enter your draft message (press Enter twice to finish):[/]")
-                    lines = []
-                    try:
-                        while True:
-                            line = input()
-                            if line == "" and lines and lines[-1] == "":
-                                break
-                            lines.append(line)
-                    except EOFError:
-                        pass
-                    current = "\n".join(lines).strip()
+                # Parse template into structured fields and prompt each one
+                current = _interactive_template_input(template_content)
+                if current is None:
+                    return
                 if not current:
                     console.print("[yellow]Empty draft, skipping.[/]")
                     return
