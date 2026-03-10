@@ -326,7 +326,8 @@ def _parse_template_fields(template_content: str) -> list[dict]:
     Rules:
     - Consecutive [brackets] on one line (e.g. [tag][cat]) = inline fields, each prompted
     - Text after brackets on same line (e.g. "short description") = inline field
-    - [bracket] followed by sub-lines (1. 2. or text) = section title with sub-items
+    - [bracket] followed by sub-lines (1. 2. or text) = section title, user inputs
+      multiple items dynamically (Enter twice to finish)
     """
     import re
 
@@ -343,21 +344,19 @@ def _parse_template_fields(template_content: str) -> list[dict]:
         line = lines[i]
         if line.strip().startswith("["):
             # Check if next lines are sub-items (not starting with [)
-            sub_items = []
+            has_sub = False
             j = i + 1
             while j < len(lines) and not lines[j].strip().startswith("["):
-                sub_items.append(lines[j].strip())
+                has_sub = True
                 j += 1
 
-            if sub_items:
-                # Section title with sub-items
-                # Extract title from [brackets]
-                title_match = re.match(r"\[(.+?)\]", line.strip())
-                title = title_match.group(1) if title_match else line.strip()
+            if has_sub:
+                # Section title — user will input dynamic numbered items
+                bracket_match = re.match(r"(\[.+?\])", line.strip())
+                bracket_raw = bracket_match.group(1) if bracket_match else line.strip()
                 fields.append({
                     "type": "section",
-                    "title": title,
-                    "items": sub_items,
+                    "title": bracket_raw,
                 })
                 i = j
             else:
@@ -367,7 +366,7 @@ def _parse_template_fields(template_content: str) -> list[dict]:
                 for b in brackets:
                     fields.append({"type": "inline", "label": b})
                 if trailing:
-                    fields.append({"type": "inline", "label": trailing})
+                    fields.append({"type": "trailing", "label": trailing})
                 i += 1
         else:
             i += 1
@@ -395,22 +394,45 @@ def _interactive_template_input(template_content: str) -> str | None:
 
     console.print("[dim]Fill in each field (leave empty to skip):[/]")
     output_parts = []
+    inline_buf = []  # collect consecutive inline fields into one line
 
     try:
         for f in fields:
             if f["type"] == "inline":
-                val = input(f"  [bold cyan]{f['label']}[/]: " if console.is_terminal else f"  {f['label']}: ")
-                output_parts.append(f"{f['label']}: {val.strip()}" if val.strip() else "")
+                val = input(f"  {f['label']}: ").strip()
+                inline_buf.append(f"[{val}]" if val else f"[{f['label']}]")
+            elif f["type"] == "trailing":
+                val = input(f"  {f['label']}: ").strip()
+                inline_buf.append(f" {val}" if val else f" {f['label']}")
             elif f["type"] == "section":
-                console.print(f"  [bold yellow]{f['title']}[/]")
+                # Flush any pending inline fields as one line
+                if inline_buf:
+                    output_parts.append("".join(inline_buf))
+                    inline_buf = []
+
+                console.print(f"  {f['title']} (Enter twice to finish)")
                 section_lines = []
-                for item in f["items"]:
-                    val = input(f"    {item} ")
-                    section_lines.append(f"{item} {val.strip()}" if val.strip() else item)
-                output_parts.append(f"{f['title']}:\n" + "\n".join(section_lines))
+                n = 1
+                empty_count = 0
+                while True:
+                    val = input(f"    {n}. ").strip()
+                    if not val:
+                        empty_count += 1
+                        if empty_count >= 1:
+                            break
+                        continue
+                    empty_count = 0
+                    section_lines.append(f"{n}. {val}")
+                    n += 1
+                if section_lines:
+                    output_parts.append(f"{f['title']}\n" + "\n".join(section_lines))
     except (EOFError, KeyboardInterrupt):
         console.print("[yellow]Cancelled.[/]")
         return None
+
+    # Flush remaining inline fields
+    if inline_buf:
+        output_parts.append("".join(inline_buf))
 
     result = "\n".join(p for p in output_parts if p).strip()
     if not result:
