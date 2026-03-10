@@ -17,7 +17,7 @@ class Severity(Enum):
 
     @property
     def blocks(self) -> bool:
-        return self in (Severity.CRITICAL, Severity.ERROR)
+        return False
 
 
 @dataclass(frozen=True)

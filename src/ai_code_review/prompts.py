@@ -15,6 +15,8 @@ Do not report:
 - Code style or naming suggestions
 - Performance optimization suggestions
 - Refactoring suggestions
+- Android XML android:key attributes (e.g. android:key="pref_camera2_xxx") — these are preference identifiers, NOT hardcoded secrets
+- Android resource references in XML (e.g. @string/, @drawable/, @color/) are normal usage, not issues
 
 Respond with a JSON array only. Each element:
 {"severity": "critical|error|warning|info", "file": "path", "line": number, "message": "description"}
