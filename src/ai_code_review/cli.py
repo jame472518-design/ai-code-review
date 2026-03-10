@@ -620,9 +620,14 @@ def config_init_template(force: bool) -> None:
     """Copy bundled commit template to config dir and set config."""
     import importlib.resources
 
-    # Read template from package
-    templates = importlib.resources.files("ai_code_review") / "templates"
-    src = templates / "commit-template.txt"
+    # Prefer source tree template (editable install / dev clone), fallback to installed package
+    _src_dir = Path(__file__).resolve().parent / "templates"
+    _src_file = _src_dir / "commit-template.txt"
+    if _src_file.exists():
+        src = _src_file
+    else:
+        templates = importlib.resources.files("ai_code_review") / "templates"
+        src = templates / "commit-template.txt"
     content = src.read_text(encoding="utf-8")
 
     # Write to config dir
