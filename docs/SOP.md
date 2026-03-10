@@ -27,7 +27,7 @@ brew install python@3.12
 
 ```bash
 # GitHub
-git clone https://github.com/seen0722/ai-code-review.git
+git clone https://github.com/jame472518-design/ai-code-review.git
 
 # 或內網 GitLab（替換為實際 URL）
 # git clone https://gitlab.internal.company.com/bsp-tools/ai-code-review.git
@@ -41,7 +41,7 @@ pip install .
 或直接安裝（不需 clone）：
 
 ```bash
-pip install git+https://github.com/seen0722/ai-code-review.git
+pip install git+https://github.com/jame472518-design/ai-code-review.git
 ```
 
 驗證：`ai-review --help`
@@ -384,7 +384,7 @@ rm -rf ~/.config/ai-code-review
 ```bash
 #!/usr/bin/env bash
 set -e
-REPO_URL="${AI_REVIEW_REPO:-https://github.com/seen0722/ai-code-review.git}"
+REPO_URL="${AI_REVIEW_REPO:-https://github.com/jame472518-design/ai-code-review.git}"
 INSTALL_DIR="${HOME}/ai-code-review"
 
 echo "=== AI Code Review Setup ==="

@@ -42,7 +42,7 @@ brew install python@3.12
 
 ```bash
 # GitHub
-git clone https://github.com/seen0722/ai-code-review.git
+git clone https://github.com/jame472518-design/ai-code-review.git
 
 # Or internal GitLab (replace with your URL)
 # git clone https://gitlab.internal.company.com/bsp-tools/ai-code-review.git
@@ -54,7 +54,7 @@ pip install .
 Alternatively, install directly without cloning:
 
 ```bash
-pip install git+https://github.com/seen0722/ai-code-review.git
+pip install git+https://github.com/jame472518-design/ai-code-review.git
 ```
 
 Verify: `ai-review --help`

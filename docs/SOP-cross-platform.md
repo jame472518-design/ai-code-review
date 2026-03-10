@@ -157,12 +157,12 @@ ollama list
 
 ```powershell
 # 方式一：從原始碼安裝（推薦）
-git clone https://github.com/seen0722/ai-code-review.git
+git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
 pip install .
 
 # 方式二：直接從 GitHub 安裝
-pip install git+https://github.com/seen0722/ai-code-review.git
+pip install git+https://github.com/jame472518-design/ai-code-review.git
 
 # 驗證安裝
 ai-review --help
@@ -176,14 +176,14 @@ ai-review --help
 
 ```bash
 # 方式一：從原始碼安裝（推薦）
-git clone https://github.com/seen0722/ai-code-review.git
+git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
 python3 -m venv .venv
 source .venv/bin/activate
 pip install .
 
 # 方式二：直接安裝
-pip3 install git+https://github.com/seen0722/ai-code-review.git
+pip3 install git+https://github.com/jame472518-design/ai-code-review.git
 
 # 驗證
 ai-review --help
@@ -193,14 +193,14 @@ ai-review --help
 
 ```bash
 # 方式一：從原始碼安裝（推薦）
-git clone https://github.com/seen0722/ai-code-review.git
+git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
 python3 -m venv .venv
 source .venv/bin/activate
 pip install .
 
 # 方式二：直接安裝
-pip3 install git+https://github.com/seen0722/ai-code-review.git
+pip3 install git+https://github.com/jame472518-design/ai-code-review.git
 
 # 驗證
 ai-review --help
@@ -878,7 +878,7 @@ sudo userdel ollama
 ```bash
 #!/usr/bin/env bash
 set -e
-REPO_URL="${AI_REVIEW_REPO:-https://github.com/seen0722/ai-code-review.git}"
+REPO_URL="${AI_REVIEW_REPO:-https://github.com/jame472518-design/ai-code-review.git}"
 MODEL="${OLLAMA_MODEL:-llama3.2}"
 
 echo "=== AI Code Review Setup ==="
@@ -923,7 +923,7 @@ chmod +x setup-ai-review.sh
 
 ```powershell
 $ErrorActionPreference = "Stop"
-$REPO_URL = if ($env:AI_REVIEW_REPO) { $env:AI_REVIEW_REPO } else { "https://github.com/seen0722/ai-code-review.git" }
+$REPO_URL = if ($env:AI_REVIEW_REPO) { $env:AI_REVIEW_REPO } else { "https://github.com/jame472518-design/ai-code-review.git" }
 
 Write-Host "=== AI Code Review Setup ==="
 

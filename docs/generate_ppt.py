@@ -394,7 +394,7 @@ make_3col_slide("3. 安裝 ai-review CLI",
     [  # Windows
         "從原始碼安裝：",
         "$ git clone https://github.com/",
-        "    seen0722/ai-code-review.git",
+        "    jame472518-design/ai-code-review.git",
         "$ cd ai-code-review",
         "$ pip install .",
         "",
@@ -408,7 +408,7 @@ make_3col_slide("3. 安裝 ai-review CLI",
     [  # macOS
         "從原始碼安裝：",
         "$ git clone https://github.com/",
-        "    seen0722/ai-code-review.git",
+        "    jame472518-design/ai-code-review.git",
         "$ cd ai-code-review",
         "$ python3 -m venv .venv",
         "$ source .venv/bin/activate",
@@ -420,7 +420,7 @@ make_3col_slide("3. 安裝 ai-review CLI",
     [  # Linux
         "從原始碼安裝：",
         "$ git clone https://github.com/",
-        "    seen0722/ai-code-review.git",
+        "    jame472518-design/ai-code-review.git",
         "$ cd ai-code-review",
         "$ python3 -m venv .venv",
         "$ source .venv/bin/activate",
@@ -429,7 +429,7 @@ make_3col_slide("3. 安裝 ai-review CLI",
         "驗證：",
         "$ ai-review --help",
     ],
-    note="或直接安裝：pip install git+https://github.com/seen0722/ai-code-review.git"
+    note="或直接安裝：pip install git+https://github.com/jame472518-design/ai-code-review.git"
 )
 
 # ── Slide 10: Section - Config ──
@@ -850,7 +850,7 @@ make_3col_slide("12. 完整移除",
 # ── Slide 34: End ──
 make_title_slide(
     "Thank You",
-    "Questions?  →  github.com/seen0722/ai-code-review"
+    "Questions?  →  github.com/jame472518-design/ai-code-review"
 )
 
 # ── Save ──
