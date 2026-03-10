@@ -273,8 +273,8 @@ ai-review config set commit project_id "PROJ-1"
 # 初始化 commit 模板
 ai-review config init-template
 
-# 設定審查副檔名
-ai-review config set review include_extensions "c,cpp,h,hpp,java,py,json"
+# 設定審查副檔名（預設不限制，審查所有檔案；有需要時再限縮）
+ai-review config set review include_extensions "c,cpp,h,py"
 ```
 
 ---

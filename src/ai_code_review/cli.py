@@ -101,9 +101,7 @@ def _review(ctx: click.Context) -> None:
     output_format = ctx.obj["output_format"]
     graceful = ctx.obj.get("graceful", False)
 
-    ext_raw = config.get("review", "include_extensions")
-    if ext_raw is None:
-        ext_raw = DEFAULT_INCLUDE_EXTENSIONS
+    ext_raw = config.get("review", "include_extensions") or DEFAULT_INCLUDE_EXTENSIONS
     extensions = [e.strip() for e in ext_raw.split(",") if e.strip()] if ext_raw else None
 
     try:
@@ -255,9 +253,7 @@ def generate_commit_msg_cmd(ctx: click.Context, message_file: str, source: str, 
     config = Config()
     project_id = config.get("commit", "project_id")
 
-    ext_raw = config.get("review", "include_extensions")
-    if ext_raw is None:
-        ext_raw = DEFAULT_INCLUDE_EXTENSIONS
+    ext_raw = config.get("review", "include_extensions") or DEFAULT_INCLUDE_EXTENSIONS
     extensions = [e.strip() for e in ext_raw.split(",") if e.strip()] if ext_raw else None
 
     try:
@@ -477,9 +473,7 @@ def pre_push_cmd(ctx: click.Context) -> None:
     cli_provider = ctx.obj.get("cli_provider") if ctx.obj else None
     cli_model = ctx.obj.get("cli_model") if ctx.obj else None
 
-    ext_raw = config.get("review", "include_extensions")
-    if ext_raw is None:
-        ext_raw = DEFAULT_INCLUDE_EXTENSIONS
+    ext_raw = config.get("review", "include_extensions") or DEFAULT_INCLUDE_EXTENSIONS
     extensions = [e.strip() for e in ext_raw.split(",") if e.strip()] if ext_raw else None
 
     # Collect diffs from all refs being pushed

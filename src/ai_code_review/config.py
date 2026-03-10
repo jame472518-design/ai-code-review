@@ -14,8 +14,8 @@ import tomli_w
 _DEFAULT_CONFIG_DIR = Path.home() / ".config" / "ai-code-review"
 _CONFIG_FILENAME = "config.toml"
 
-# Default extensions to review (Android BSP: C/C++/Java)
-DEFAULT_INCLUDE_EXTENSIONS = "c,cpp,h,hpp,java"
+# Default extensions to review (empty = all files, no filtering)
+DEFAULT_INCLUDE_EXTENSIONS = ""
 
 # Default maximum diff lines to send to LLM (prevents context window overflow)
 DEFAULT_MAX_DIFF_LINES = 2000
