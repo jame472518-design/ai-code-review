@@ -159,7 +159,7 @@ ollama list
 # 方式一：從原始碼安裝（推薦）
 git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
-pip install .
+pip install -e .
 
 # 方式二：直接從 GitHub 安裝
 pip install git+https://github.com/jame472518-design/ai-code-review.git
@@ -180,7 +180,7 @@ git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 
 # 方式二：直接安裝
 pip3 install git+https://github.com/jame472518-design/ai-code-review.git
@@ -197,7 +197,7 @@ git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 
 # 方式二：直接安裝
 pip3 install git+https://github.com/jame472518-design/ai-code-review.git
@@ -458,7 +458,7 @@ vim ~/.config/ai-code-review/commit-template.txt
 
 ```bash
 # 安裝（一次性）
-pip install .
+pip install -e .
 ai-review config set provider default ollama
 ai-review config set ollama model llama3.2
 ai-review config init-template
@@ -520,7 +520,7 @@ sudo systemctl edit ollama
 sudo systemctl restart ollama
 
 # 每台開發機（一次）
-pip install .
+pip install -e .
 ai-review config set provider default ollama
 ai-review config set ollama base_url http://192.168.1.100:11434
 ai-review config set ollama model llama3.2
@@ -888,7 +888,7 @@ git clone "$REPO_URL" ~/ai-code-review
 cd ~/ai-code-review
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 
 # 設定 Ollama
 ai-review config set provider default ollama
@@ -929,7 +929,7 @@ Write-Host "=== AI Code Review Setup ==="
 
 git clone $REPO_URL "$HOME\ai-code-review"
 Set-Location "$HOME\ai-code-review"
-pip install .
+pip install -e .
 
 ai-review config set provider default ollama
 ai-review config set ollama base_url "http://localhost:11434"

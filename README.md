@@ -48,7 +48,7 @@ git clone https://github.com/jame472518-design/ai-code-review.git
 # git clone https://gitlab.internal.company.com/bsp-tools/ai-code-review.git
 
 cd ai-code-review
-pip install .
+pip install -e .
 ```
 
 Alternatively, install directly without cloning:

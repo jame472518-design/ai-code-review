@@ -35,7 +35,7 @@ git clone https://github.com/jame472518-design/ai-code-review.git
 cd ai-code-review
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 ```
 
 或直接安裝（不需 clone）：
@@ -392,7 +392,7 @@ git clone "$REPO_URL" "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 ai-review config set provider default ollama
 ai-review config set ollama base_url "${OLLAMA_URL:-http://localhost:11434}"
 ai-review config set ollama model "${OLLAMA_MODEL:-llama3.1}"
