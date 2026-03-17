@@ -190,24 +190,28 @@ Diff:
 
 
 _ANALYZE_DIFF_PROMPT = """\
-You are a senior software engineer. Analyze the following code changes and provide a structured summary.
+Read this git diff line by line. Lines starting with - are REMOVED code. Lines starting with + are ADDED code.
 
-Context — recent commits in this project:
-{recent_commits}
-
-Files changed (stats):
-{diff_stat}
-
-Full diff:
 {diff}
 
-Provide a concise analysis covering:
-1. **Files modified**: What each changed file likely does (infer from filename and content)
-2. **What changed**: Functional description of the modifications
-3. **Why**: Inferred motivation or purpose behind these changes
-4. **Scope**: Impact and scope of the changes (small bugfix, new feature, refactor, etc.)
+---
+Reference only (do NOT base your analysis on these):
+Recent commits: {recent_commits}
+Stats: {diff_stat}
+---
 
-Keep your analysis concise and factual. Do NOT generate a commit message — just analyze."""
+Now describe ONLY what the diff shows. For each changed file:
+
+FILE: <filename>
+OLD CODE: <exact code that was removed (- lines)>
+NEW CODE: <exact code that was added (+ lines)>
+EFFECT: <what this specific change does>
+
+IMPORTANT:
+- Describe ONLY changes you can see in the - and + lines above
+- Do NOT guess or make up changes that are not in the diff
+- Do NOT describe changes to files that are not in the diff
+- If a line changed from X to Y, say exactly what X was and what Y is now"""
 
 _GENERATE_FROM_SUMMARY_PROMPT_WITH_TEMPLATE = """\
 You are a technical writing assistant. Given the change analysis below, \

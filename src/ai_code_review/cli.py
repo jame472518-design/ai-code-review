@@ -539,6 +539,15 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
         except GitError:
             diff = ""
 
+        # Truncate large diffs to avoid LLM timeout
+        if diff:
+            max_lines_raw = config.get("review", "max_diff_lines")
+            max_lines = int(max_lines_raw) if max_lines_raw else DEFAULT_MAX_DIFF_LINES
+            lines = diff.split("\n")
+            if len(lines) > max_lines:
+                console.print(f"[yellow]Diff truncated: {len(lines)} → {max_lines} lines[/]")
+                diff = "\n".join(lines[:max_lines])
+
         reviewer = Reviewer(provider=provider)
         project_id = config.get("commit", "project_id")
 
@@ -679,7 +688,8 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
                         console.print(f"[bold red]{rich_escape(str(e))}[/]")
                     return
 
-            if not description:
+            if not description or not description.strip():
+                console.print("[yellow]AI returned empty commit message, skipping.[/]")
                 return
 
             # Remove [none] tags (case-insensitive) and clean up extra spaces
