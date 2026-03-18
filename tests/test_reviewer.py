@@ -49,7 +49,7 @@ class TestReviewDiff:
 class TestImproveCommitMessage:
     def test_calls_provider(self, reviewer, mock_provider):
         reviewer.improve_commit_message("[BSP-1] fix bug", "diff")
-        mock_provider.improve_commit_msg.assert_called_once_with("[BSP-1] fix bug", "diff")
+        mock_provider.improve_commit_msg.assert_called_once_with("[BSP-1] fix bug", "diff", template=None)
 
     def test_returns_improved_message(self, reviewer):
         result = reviewer.improve_commit_message("[BSP-1] fix bug", "diff")
@@ -63,7 +63,7 @@ class TestGenerateCommitMessage:
         reviewer = Reviewer(provider=mock_provider)
         result = reviewer.generate_commit_message("some diff")
         assert result == "fix buffer overflow"
-        mock_provider.generate_commit_msg.assert_called_once_with("some diff")
+        mock_provider.generate_commit_msg.assert_called_once_with("some diff", template=None)
 
 
 class TestHealthCheck:

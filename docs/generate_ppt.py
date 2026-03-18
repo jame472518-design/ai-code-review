@@ -18,12 +18,20 @@ CODE_BG   = RGBColor(0x31, 0x34, 0x4B)   # code block bg
 WIN_CLR   = RGBColor(0x74, 0xC7, 0xEC)   # Windows blue
 MAC_CLR   = RGBColor(0xF5, 0xC2, 0xE7)   # macOS pink
 LNX_CLR   = RGBColor(0xA6, 0xE3, 0xA1)   # Linux green
+ACCENT_DIM = RGBColor(0x45, 0x47, 0x5A)  # subtle separator
+
+# ── Typography ──
+FONT_TITLE = "Segoe UI"
+FONT_BODY  = "Segoe UI"
+FONT_CODE  = "Cascadia Code"
 
 prs = Presentation()
 prs.slide_width  = Inches(13.333)
 prs.slide_height = Inches(7.5)
 SLIDE_W = prs.slide_width
 SLIDE_H = prs.slide_height
+
+_slide_counter = [0]  # mutable counter for slide numbers
 
 
 def _set_slide_bg(slide, color):
@@ -38,9 +46,17 @@ def _add_shape(slide, left, top, width, height, fill_color, corner_radius=Inches
     shape.fill.solid()
     shape.fill.fore_color.rgb = fill_color
     shape.line.fill.background()
-    # corner radius via adjustments
     if shape.adjustments and len(shape.adjustments) > 0:
         shape.adjustments[0] = 0.05
+    return shape
+
+
+def _add_rect(slide, left, top, width, height, fill_color):
+    """Add a plain rectangle (no rounded corners)."""
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = fill_color
+    shape.line.fill.background()
     return shape
 
 
@@ -48,7 +64,7 @@ def _add_text_box(slide, left, top, width, height):
     return slide.shapes.add_textbox(left, top, width, height)
 
 
-def _set_text(tf, text, size=18, color=WHITE, bold=False, alignment=PP_ALIGN.LEFT):
+def _set_text(tf, text, size=18, color=WHITE, bold=False, alignment=PP_ALIGN.LEFT, font_name=None):
     tf.clear()
     tf.word_wrap = True
     p = tf.paragraphs[0]
@@ -56,16 +72,18 @@ def _set_text(tf, text, size=18, color=WHITE, bold=False, alignment=PP_ALIGN.LEF
     p.font.size = Pt(size)
     p.font.color.rgb = color
     p.font.bold = bold
+    p.font.name = font_name or FONT_BODY
     p.alignment = alignment
     return p
 
 
-def _add_para(tf, text, size=16, color=WHITE, bold=False, space_before=Pt(4), space_after=Pt(2), indent=0):
+def _add_para(tf, text, size=16, color=WHITE, bold=False, space_before=Pt(2), space_after=Pt(1), indent=0, font_name=None):
     p = tf.add_paragraph()
     p.text = text
     p.font.size = Pt(size)
     p.font.color.rgb = color
     p.font.bold = bold
+    p.font.name = font_name or FONT_BODY
     p.space_before = space_before
     p.space_after = space_after
     if indent:
@@ -77,19 +95,56 @@ def _add_bullet(tf, text, size=15, color=WHITE, indent=0):
     return _add_para(tf, text, size=size, color=color, indent=indent)
 
 
+def _add_accent_line(slide, left, top, width, color=ACCENT, height=Inches(0.04)):
+    """Add a thin horizontal accent line."""
+    return _add_rect(slide, left, top, width, height, color)
+
+
+def _add_slide_number(slide, number):
+    """Add slide number at bottom-right."""
+    tb = _add_text_box(slide, Inches(12.3), Inches(7.05), Inches(0.8), Inches(0.35))
+    _set_text(tb.text_frame, str(number), size=10, color=GRAY, alignment=PP_ALIGN.RIGHT)
+
+
+def _add_footer_bar(slide):
+    """Add a subtle branded footer bar at bottom."""
+    _add_rect(slide, Inches(0), Inches(7.3), Inches(13.333), Inches(0.2), ACCENT_DIM)
+    tb = _add_text_box(slide, Inches(0.5), Inches(7.28), Inches(5), Inches(0.25))
+    _set_text(tb.text_frame, "AI Code Review  |  Cross-Platform SOP", size=8, color=GRAY)
+
+
+def _finish_slide(slide):
+    """Add common elements (slide number + footer) to every slide."""
+    _slide_counter[0] += 1
+    _add_slide_number(slide, _slide_counter[0])
+    _add_footer_bar(slide)
+
+
 # ── Helper: title slide ──
 def make_title_slide(title, subtitle=""):
     slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
     _set_slide_bg(slide, BG_DARK)
 
+    # Decorative top stripe
+    _add_rect(slide, Inches(0), Inches(0), Inches(13.333), Inches(0.06), ACCENT)
+
+    # Decorative side accent (left bar)
+    _add_rect(slide, Inches(0.6), Inches(1.8), Inches(0.06), Inches(4.0), ACCENT_DIM)
+
     # Title
     tb = _add_text_box(slide, Inches(1), Inches(2.2), Inches(11.3), Inches(1.5))
-    _set_text(tb.text_frame, title, size=44, color=ACCENT, bold=True, alignment=PP_ALIGN.CENTER)
+    _set_text(tb.text_frame, title, size=48, color=ACCENT, bold=True,
+              alignment=PP_ALIGN.CENTER, font_name=FONT_TITLE)
+
+    # Accent line under title
+    _add_accent_line(slide, Inches(4.5), Inches(3.5), Inches(4.3), ACCENT)
 
     if subtitle:
         tb2 = _add_text_box(slide, Inches(1), Inches(3.8), Inches(11.3), Inches(1))
-        _set_text(tb2.text_frame, subtitle, size=22, color=GRAY, alignment=PP_ALIGN.CENTER)
+        _set_text(tb2.text_frame, subtitle, size=22, color=GRAY,
+                  alignment=PP_ALIGN.CENTER, font_name=FONT_BODY)
 
+    _finish_slide(slide)
     return slide
 
 
@@ -98,21 +153,30 @@ def make_section_slide(number, title):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _set_slide_bg(slide, BG_DARK)
 
+    # Decorative horizontal lines
+    _add_accent_line(slide, Inches(2), Inches(2.6), Inches(3.5), ACCENT_DIM)
+    _add_accent_line(slide, Inches(7.8), Inches(2.6), Inches(3.5), ACCENT_DIM)
+
     # Number circle
-    circ = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(5.9), Inches(2.0), Inches(1.5), Inches(1.5))
+    circ = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(5.9), Inches(1.85), Inches(1.5), Inches(1.5))
     circ.fill.solid()
     circ.fill.fore_color.rgb = ACCENT
     circ.line.fill.background()
     tf = circ.text_frame
     tf.word_wrap = False
-    _set_text(tf, str(number), size=40, color=BG_DARK, bold=True, alignment=PP_ALIGN.CENTER)
     tf.paragraphs[0].alignment = PP_ALIGN.CENTER
-    circ.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+    p = _set_text(tf, str(number), size=42, color=BG_DARK, bold=True,
+                  alignment=PP_ALIGN.CENTER, font_name=FONT_TITLE)
 
     # Title
     tb = _add_text_box(slide, Inches(1), Inches(3.8), Inches(11.3), Inches(1.2))
-    _set_text(tb.text_frame, title, size=36, color=WHITE, bold=True, alignment=PP_ALIGN.CENTER)
+    _set_text(tb.text_frame, title, size=36, color=WHITE, bold=True,
+              alignment=PP_ALIGN.CENTER, font_name=FONT_TITLE)
 
+    # Subtitle accent line
+    _add_accent_line(slide, Inches(5.5), Inches(5.0), Inches(2.3), ACCENT)
+
+    _finish_slide(slide)
     return slide
 
 
@@ -123,7 +187,10 @@ def make_3col_slide(title, win_lines, mac_lines, linux_lines, note=""):
 
     # Title bar
     tb = _add_text_box(slide, Inches(0.5), Inches(0.3), Inches(12), Inches(0.7))
-    _set_text(tb.text_frame, title, size=28, color=ACCENT, bold=True)
+    _set_text(tb.text_frame, title, size=28, color=ACCENT, bold=True, font_name=FONT_TITLE)
+
+    # Accent line under title
+    _add_accent_line(slide, Inches(0.5), Inches(0.95), Inches(12.3), ACCENT_DIM)
 
     col_w = Inches(3.9)
     col_h = Inches(5.2)
@@ -143,30 +210,35 @@ def make_3col_slide(title, win_lines, mac_lines, linux_lines, note=""):
         # Card background
         _add_shape(slide, left, top, col_w, col_h, CODE_BG)
 
+        # Colored top stripe
+        _add_rect(slide, left + Inches(0.1), top + Inches(0.02), col_w - Inches(0.2), Inches(0.05), pcolor)
+
         # Platform label
-        label = _add_text_box(slide, left + Inches(0.15), top + Inches(0.1), col_w - Inches(0.3), Inches(0.5))
-        _set_text(label.text_frame, pname, size=18, color=pcolor, bold=True)
+        label = _add_text_box(slide, left + Inches(0.15), top + Inches(0.15), col_w - Inches(0.3), Inches(0.5))
+        _set_text(label.text_frame, pname, size=18, color=pcolor, bold=True, font_name=FONT_TITLE)
 
         # Content
-        content = _add_text_box(slide, left + Inches(0.15), top + Inches(0.55), col_w - Inches(0.3), col_h - Inches(0.7))
+        content = _add_text_box(slide, left + Inches(0.15), top + Inches(0.6), col_w - Inches(0.3), col_h - Inches(0.75))
         tf = content.text_frame
         tf.word_wrap = True
         first = True
         for line in lines:
             if first:
-                _set_text(tf, line, size=13, color=WHITE)
+                _set_text(tf, line, size=13, color=WHITE, font_name=FONT_BODY)
                 first = False
             else:
                 is_cmd = line.startswith("$ ") or line.startswith("# ")
                 clr = ACCENT2 if is_cmd else WHITE
                 sz = 12 if is_cmd else 13
-                _add_para(tf, line, size=sz, color=clr, space_before=Pt(2), space_after=Pt(1))
+                fn = FONT_CODE if is_cmd else FONT_BODY
+                _add_para(tf, line, size=sz, color=clr, space_before=Pt(2), space_after=Pt(1), font_name=fn)
 
     # Note at bottom
     if note:
         nb = _add_text_box(slide, Inches(0.5), Inches(6.6), Inches(12), Inches(0.6))
         _set_text(nb.text_frame, note, size=13, color=GRAY)
 
+    _finish_slide(slide)
     return slide
 
 
@@ -177,12 +249,18 @@ def make_content_slide(title, bullets, note=""):
 
     # Title
     tb = _add_text_box(slide, Inches(0.5), Inches(0.3), Inches(12), Inches(0.7))
-    _set_text(tb.text_frame, title, size=28, color=ACCENT, bold=True)
+    _set_text(tb.text_frame, title, size=28, color=ACCENT, bold=True, font_name=FONT_TITLE)
+
+    # Accent line under title
+    _add_accent_line(slide, Inches(0.5), Inches(0.95), Inches(12.3), ACCENT_DIM)
 
     # Body card
     _add_shape(slide, Inches(0.4), Inches(1.1), Inches(12.5), Inches(5.5), CODE_BG)
 
-    body = _add_text_box(slide, Inches(0.7), Inches(1.3), Inches(12), Inches(5.2))
+    # Left accent bar on card
+    _add_rect(slide, Inches(0.4), Inches(1.25), Inches(0.06), Inches(5.2), ACCENT)
+
+    body = _add_text_box(slide, Inches(0.75), Inches(1.3), Inches(11.9), Inches(5.2))
     tf = body.text_frame
     tf.word_wrap = True
 
@@ -197,19 +275,22 @@ def make_content_slide(title, bullets, note=""):
         clr = opts.get("color", WHITE)
         b = opts.get("bold", False)
         ind = opts.get("indent", 0)
+        is_cmd = text.strip().startswith("$ ") or text.strip().startswith("# ")
+        fn = FONT_CODE if is_cmd and sz <= 15 else FONT_BODY
 
         if first:
-            _set_text(tf, text, size=sz, color=clr, bold=b)
+            _set_text(tf, text, size=sz, color=clr, bold=b, font_name=fn)
             first = False
         else:
             _add_para(tf, text, size=sz, color=clr, bold=b, indent=ind,
-                      space_before=Pt(opts.get("space_before", 6)),
-                      space_after=Pt(2))
+                      space_before=Pt(opts.get("space_before", 3)),
+                      space_after=Pt(1), font_name=fn)
 
     if note:
         nb = _add_text_box(slide, Inches(0.5), Inches(6.8), Inches(12), Inches(0.5))
         _set_text(nb.text_frame, note, size=12, color=GRAY)
 
+    _finish_slide(slide)
     return slide
 
 
@@ -220,7 +301,10 @@ def make_table_slide(title, headers, rows, col_widths=None):
 
     # Title
     tb = _add_text_box(slide, Inches(0.5), Inches(0.3), Inches(12), Inches(0.7))
-    _set_text(tb.text_frame, title, size=28, color=ACCENT, bold=True)
+    _set_text(tb.text_frame, title, size=28, color=ACCENT, bold=True, font_name=FONT_TITLE)
+
+    # Accent line under title
+    _add_accent_line(slide, Inches(0.5), Inches(0.95), Inches(12.3), ACCENT_DIM)
 
     n_rows = len(rows) + 1
     n_cols = len(headers)
@@ -237,6 +321,7 @@ def make_table_slide(title, headers, rows, col_widths=None):
             p.font.size = Pt(14)
             p.font.bold = True
             p.font.color.rgb = BG_DARK
+            p.font.name = FONT_TITLE
         cell.fill.solid()
         cell.fill.fore_color.rgb = ACCENT
 
@@ -248,9 +333,11 @@ def make_table_slide(title, headers, rows, col_widths=None):
             for p in cell.text_frame.paragraphs:
                 p.font.size = Pt(13)
                 p.font.color.rgb = WHITE
+                p.font.name = FONT_BODY
             cell.fill.solid()
             cell.fill.fore_color.rgb = CODE_BG if i % 2 == 0 else BG_SLIDE
 
+    _finish_slide(slide)
     return slide
 
 
@@ -463,6 +550,10 @@ make_content_slide("4. 設定 Commit 相關（全平台通用）", [
     ("$ ai-review config init-template", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("模板檔會複製到 ~/.config/ai-code-review/commit-template.txt", {"size": 14, "color": GRAY, "indent": 1}),
     ("", {"size": 8}),
+    ("初始化 AI 生成 prompt", {"size": 18, "bold": True, "color": WHITE}),
+    ("$ ai-review config init-generate-prompt", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("prompt 檔會複製到 ~/.config/ai-code-review/generate-prompt.txt", {"size": 14, "color": GRAY, "indent": 1}),
+    ("", {"size": 8}),
     ("限縮審查副檔名（預設：不限制，審查所有檔案）", {"size": 18, "bold": True, "color": WHITE}),
     ("$ ai-review config set review include_extensions \"c,cpp,h,py\"", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("預設：空（全部檔案），有需要時再設定限縮", {"size": 14, "color": GRAY, "indent": 1}),
@@ -481,13 +572,9 @@ make_content_slide("5. 安裝 Git Hooks（全平台通用）", [
     ("$ cd /path/to/repo", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("$ ai-review hook enable                # 自動設定 + 安裝 hooks", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("", {"size": 8}),
-    ("批量管理多個 Repo", {"size": 18, "bold": True, "color": ACCENT3}),
-    ("$ ai-review hook enable --all /workspace --list    # 預覽狀態", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("$ ai-review hook enable --all /workspace           # 全部啟用", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("$ ai-review hook enable --path /repo1 --path /repo2", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("$ ai-review hook disable --path /repo1             # 停用特定", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("", {"size": 8}),
     ("確認狀態：ai-review hook status", {"size": 16, "bold": True, "color": WHITE}),
+    ("", {"size": 8}),
+    ("多個 Repo 的批量管理 → 見「情境二」（P22-P23）", {"size": 16, "color": GRAY}),
 ], note="hook enable 會同時設定 git config + 複製 hook 腳本到 .git/hooks/")
 
 # ── Slide 15: Hook types ──
@@ -506,6 +593,10 @@ make_section_slide(6, "日常使用流程")
 
 # ── Slide 17: Daily workflow ──
 make_content_slide("6. 日常使用流程", [
+    ("⚠ 首次使用？先完成以下設定（做過可跳過）", {"size": 16, "bold": True, "color": ACCENT3}),
+    ("$ ai-review hook install --template    # 一次性全域設定", {"size": 13, "color": GRAY, "indent": 1}),
+    ("$ ai-review hook enable                # 在 repo 裡啟用", {"size": 13, "color": GRAY, "indent": 1}),
+    ("", {"size": 6}),
     ("正常 Commit 流程", {"size": 20, "bold": True, "color": ACCENT}),
     ("", {"size": 6}),
     ("1. 修改程式碼", {"size": 16, "color": WHITE}),
@@ -532,13 +623,17 @@ make_content_slide("7. 互動式 Commit 助手", [
     ("", {"size": 6}),
     ("  Commit Message Assistant", {"size": 16, "bold": True, "color": ACCENT}),
     ("    1  Load template       - 載入模板", {"size": 15, "color": WIN_CLR}),
-    ("    2  LLM optimize        - AI 優化已有文字", {"size": 15, "color": MAC_CLR}),
-    ("    3  LLM auto-generate   - AI 自動生成", {"size": 15, "color": LNX_CLR}),
+    ("    2  Manual draft        - 輸入草稿 → AI 優化", {"size": 15, "color": MAC_CLR}),
+    ("    3  Fixed questions     - 固定問題 → 回答 → AI 生成", {"size": 15, "color": ACCENT}),
+    ("    4  LLM interview       - AI 問你問題 → 生成", {"size": 15, "color": ACCENT3}),
+    ("    5  LLM auto-generate   - AI 從 diff 自動生成", {"size": 15, "color": LNX_CLR}),
     ("    s  Skip                - 跳過，直接進編輯器", {"size": 15, "color": GRAY}),
     ("", {"size": 10}),
     ("選項 1：載入 commit template 到編輯器", {"size": 16, "color": WIN_CLR}),
-    ("選項 2：輸入草稿 → AI 優化格式與描述 → 編輯器確認", {"size": 16, "color": MAC_CLR}),
-    ("選項 3：從 staged diff 全自動生成 → 編輯器確認", {"size": 16, "color": LNX_CLR}),
+    ("選項 2：輸入草稿 → AI 讓描述更專業精確 → 編輯器確認", {"size": 16, "color": MAC_CLR}),
+    ("選項 3：用固定問題檔提問 → 回答後 AI 生成 → 編輯器確認", {"size": 16, "color": ACCENT}),
+    ("選項 4：AI 問你中英雙語問題 → 根據答案生成 → 編輯器確認", {"size": 16, "color": ACCENT3}),
+    ("選項 5：兩階段自動生成（分析 diff → 生成 message）→ 編輯器確認", {"size": 16, "color": LNX_CLR}),
     ("選項 s：直接進入編輯器手動編寫", {"size": 16, "color": GRAY}),
     ("", {"size": 8}),
     ("所有選項最終都進入編輯器，讓你確認後才真正 commit", {"size": 16, "bold": True, "color": ACCENT2}),
@@ -553,6 +648,8 @@ make_content_slide("8. 情境一：個人開發者", [
     ("$ pip install -e .", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("$ ai-review config set provider default ollama", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("$ ai-review config set ollama model llama3.2", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("$ ai-review config init-template", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("$ ai-review config init-generate-prompt", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("$ ai-review hook enable", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("", {"size": 8}),
     ("日常使用 — hooks 自動運作", {"size": 18, "bold": True, "color": ACCENT}),
@@ -563,48 +660,34 @@ make_content_slide("8. 情境一：個人開發者", [
     ("$ git push            → pre-push AI 審查", {"size": 14, "color": ACCENT2, "indent": 1}),
 ])
 
-# ── Slide 22: Scenario - Multi repo ──
-make_content_slide("8. 情境二：管理多個 Repo（BSP 團隊）", [
-    ("預覽所有 repo 狀態", {"size": 18, "bold": True, "color": ACCENT}),
+# ── Slide 22: Scenario - Multi repo (daily) ──
+make_content_slide("8. 情境二：管理多個 Repo — 日常使用", [
+    ("⚠ 首次使用？先完成全域設定（做過可跳過）", {"size": 16, "bold": True, "color": ACCENT3}),
+    ("$ ai-review hook install --template    # 一次性安裝 template hooks", {"size": 13, "color": GRAY, "indent": 1}),
+    ("", {"size": 6}),
+    ("先預覽所有 repo 狀態", {"size": 18, "bold": True, "color": ACCENT}),
     ("$ ai-review hook enable --all /workspace --list", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("  camera-hal: disabled    audio-hal: disabled", {"size": 13, "color": GRAY, "indent": 1}),
     ("  kernel: disabled        framework: disabled", {"size": 13, "color": GRAY, "indent": 1}),
-    ("", {"size": 8}),
-    ("批量啟用", {"size": 18, "bold": True, "color": ACCENT2}),
-    ("$ ai-review hook enable --all /workspace", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("", {"size": 6}),
-    ("啟用特定 repo", {"size": 18, "bold": True, "color": ACCENT3}),
-    ("$ ai-review hook enable --path /workspace/camera-hal \\", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("                        --path /workspace/kernel", {"size": 14, "color": ACCENT3, "indent": 1}),
+    ("方法 A：Android BSP 團隊（repo forall）", {"size": 18, "bold": True, "color": ACCENT2}),
+    ("$ repo forall -c 'ai-review hook enable'", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("  透過 repo forall 對所有 manifest 內的 repo 逐一啟用", {"size": 13, "color": GRAY, "indent": 1}),
     ("", {"size": 6}),
-    ("停用特定 repo", {"size": 18, "bold": True, "color": WIN_CLR}),
-    ("$ ai-review hook disable --path /workspace/kernel", {"size": 14, "color": WIN_CLR, "indent": 1}),
-])
+    ("方法 B：通用（掃描目錄下所有 git repo）", {"size": 18, "bold": True, "color": ACCENT3}),
+    ("$ ai-review hook enable --all /workspace", {"size": 14, "color": ACCENT3, "indent": 1}),
+    ("  自動掃描 /workspace 下所有 git repo 並啟用", {"size": 13, "color": GRAY, "indent": 1}),
+], note="hook enable 會同時設定 git config + 複製 hook 腳本到 .git/hooks/")
 
-# ── Slide 23: Scenario - Shared LLM ──
-make_content_slide("8. 情境三：團隊共用 LLM Server", [
-    ("架構", {"size": 18, "bold": True, "color": ACCENT}),
-    ("  開發機 A (Windows) ──→", {"size": 15, "color": WIN_CLR}),
-    ("  開發機 B (macOS)   ──→  LLM Server (192.168.1.100)", {"size": 15, "color": MAC_CLR}),
-    ("  開發機 C (Linux)   ──→  Ollama + GPU", {"size": 15, "color": LNX_CLR}),
-    ("", {"size": 10}),
-    ("Server 端（一次）", {"size": 18, "bold": True, "color": ACCENT3}),
-    ("$ sudo systemctl edit ollama", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("  加入 Environment=\"OLLAMA_HOST=0.0.0.0\"", {"size": 13, "color": GRAY, "indent": 1}),
-    ("$ sudo systemctl restart ollama", {"size": 14, "color": ACCENT3, "indent": 1}),
-    ("", {"size": 6}),
-    ("每台開發機（一次）", {"size": 18, "bold": True, "color": ACCENT2}),
-    ("$ ai-review config set ollama base_url http://192.168.1.100:11434", {"size": 14, "color": ACCENT2, "indent": 1}),
-    ("$ ai-review health-check", {"size": 14, "color": ACCENT2, "indent": 1}),
-])
-
-# ── Slide 24: Scenario - Commit choices ──
-make_table_slide("8. 情境四：Commit 互動選單怎麼選",
+# ── Slide: Scenario - Commit choices ──
+make_table_slide("8. 情境三：Commit 互動選單怎麼選",
     ["選項", "適合什麼時候", "說明"],
     [
         ["1 Load template", "忘了格式", "載入模板填寫"],
-        ["2 LLM optimize", "有草稿想潤飾", "AI 優化現有文字"],
-        ["3 LLM auto-generate", "懶得寫", "AI 看 diff 自動生成"],
+        ["2 Manual draft", "有草稿想優化", "輸入草稿 → AI 讓描述更專業"],
+        ["3 Fixed questions", "團隊標準化", "固定問題檔 → 回答 → AI 生成"],
+        ["4 LLM interview", "不知怎麼寫", "AI 問你問題 → 根據答案生成"],
+        ["5 LLM auto-generate", "懶得寫", "兩階段：分析 diff → 自動生成"],
         ["s Skip", "自己寫", "直接進編輯器"],
     ]
 )
@@ -623,9 +706,11 @@ make_content_slide("9. 切換 Model（全平台通用）", [
     ("$ ai-review config set ollama model llama3.2", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("$ ai-review health-check                   # 驗證", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("", {"size": 6}),
-    ("臨時切換（不改設定）", {"size": 18, "bold": True, "color": ACCENT}),
+    ("臨時切換（不改設定，僅本次生效）", {"size": 18, "bold": True, "color": ACCENT}),
     ("$ ai-review --model codellama", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("  同 provider，只換模型（例：Ollama 換用 codellama）", {"size": 13, "color": GRAY, "indent": 1}),
     ("$ ai-review --provider openai --model gpt-4o", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("  連 provider 一起換（例：從 Ollama 切到 OpenAI）", {"size": 13, "color": GRAY, "indent": 1}),
 ], note="小模型（3B）速度快但可能誤報 ｜ 大模型（7B+）品質好但較慢")
 
 # ── Slide 23: Model comparison ──
@@ -641,19 +726,20 @@ make_table_slide("9. 模型比較",
 
 # ── Slide 24: Remote Ollama architecture ──
 make_content_slide("9. 遠端 Ollama Server 架構", [
-    ("多台開發機共用一台 LLM Server（同網域）", {"size": 18, "bold": True, "color": ACCENT}),
+    ("多人共用一台 LLM Server（同網域內）", {"size": 18, "bold": True, "color": ACCENT}),
     ("", {"size": 6}),
-    ("  開發機 A (Windows)  ──→", {"size": 15, "color": WIN_CLR}),
-    ("  開發機 B (macOS)    ──→    LLM Server (Ubuntu + GPU)", {"size": 15, "color": MAC_CLR}),
-    ("  開發機 C (Linux)    ──→    Ollama + llama3.2", {"size": 15, "color": LNX_CLR}),
-    ("                              IP: 192.168.1.100:11434", {"size": 15, "color": GRAY}),
-    ("                              OLLAMA_HOST=0.0.0.0", {"size": 15, "color": GRAY}),
-    ("", {"size": 10}),
-    ("Client 端設定（任何開發機，一行搞定）", {"size": 18, "bold": True, "color": ACCENT2}),
+    ("  使用者 A  ──→", {"size": 15, "color": WIN_CLR}),
+    ("  使用者 B  ──→  LLM Server（192.168.1.100）", {"size": 15, "color": MAC_CLR}),
+    ("  使用者 C  ──→  Ollama + llama3.2 + GPU", {"size": 15, "color": LNX_CLR}),
+    ("", {"size": 4}),
+    ("  diff 會傳送到 LLM Server 進行推理，使用者不需安裝 GPU", {"size": 13, "color": GRAY}),
+    ("  ※ 建議使用內網 Server，避免程式碼外洩", {"size": 13, "color": ACCENT3}),
+    ("", {"size": 8}),
+    ("每位使用者只需設定一次（指向 Server IP）", {"size": 18, "bold": True, "color": ACCENT2}),
     ("$ ai-review config set ollama base_url http://192.168.1.100:11434", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("$ ai-review health-check", {"size": 14, "color": ACCENT2, "indent": 1}),
     ("", {"size": 6}),
-    ("切回本地", {"size": 16, "bold": True, "color": ACCENT3}),
+    ("切回本地 Ollama", {"size": 16, "bold": True, "color": ACCENT3}),
     ("$ ai-review config set ollama base_url http://localhost:11434", {"size": 14, "color": ACCENT3, "indent": 1}),
 ])
 
@@ -717,6 +803,7 @@ make_table_slide("10. 設定與診斷指令",
         ["ai-review config get <section> <key>", "取得單一設定值"],
         ["ai-review config set <section> <key> <value>", "設定值"],
         ["ai-review config init-template", "初始化 commit 模板"],
+        ["ai-review config init-generate-prompt", "初始化 AI 生成 prompt"],
         ["ai-review health-check", "測試 LLM 連線"],
         ["ai-review -v", "Debug 模式審查"],
         ["ai-review --format markdown", "Markdown 輸出（貼 Issue）"],
@@ -847,7 +934,39 @@ make_3col_slide("12. 完整移除",
     ],
 )
 
-# ── Slide 34: End ──
+# ── Appendix: Scenario - Multi repo (advanced) ──
+make_content_slide("8. 情境二：管理多個 Repo — 進階設定（參考用）", [
+    ("啟用指定 repo", {"size": 18, "bold": True, "color": ACCENT2}),
+    ("$ ai-review hook enable --path /workspace/camera-hal \\", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("                        --path /workspace/kernel", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("  可用 --path 重複指定多個 repo", {"size": 13, "color": GRAY, "indent": 1}),
+    ("", {"size": 8}),
+    ("停用指定 repo", {"size": 18, "bold": True, "color": ACCENT3}),
+    ("$ ai-review hook disable --path /workspace/kernel", {"size": 14, "color": ACCENT3, "indent": 1}),
+    ("", {"size": 8}),
+    ("批量停用", {"size": 18, "bold": True, "color": WIN_CLR}),
+    ("$ ai-review hook disable --all /workspace", {"size": 14, "color": WIN_CLR, "indent": 1}),
+    ("  停用目錄下所有 repo 的 ai-review hooks", {"size": 13, "color": GRAY, "indent": 1}),
+])
+
+# ── Appendix: Scenario - Shared LLM ──
+make_content_slide("8. 情境三：團隊共用 LLM Server（參考用）", [
+    ("架構", {"size": 18, "bold": True, "color": ACCENT}),
+    ("  開發機 A (Windows) ──→", {"size": 15, "color": WIN_CLR}),
+    ("  開發機 B (macOS)   ──→  LLM Server (192.168.1.100)", {"size": 15, "color": MAC_CLR}),
+    ("  開發機 C (Linux)   ──→  Ollama + GPU", {"size": 15, "color": LNX_CLR}),
+    ("", {"size": 10}),
+    ("Server 端（一次）", {"size": 18, "bold": True, "color": ACCENT3}),
+    ("$ sudo systemctl edit ollama", {"size": 14, "color": ACCENT3, "indent": 1}),
+    ("  加入 Environment=\"OLLAMA_HOST=0.0.0.0\"", {"size": 13, "color": GRAY, "indent": 1}),
+    ("$ sudo systemctl restart ollama", {"size": 14, "color": ACCENT3, "indent": 1}),
+    ("", {"size": 6}),
+    ("每台開發機（一次）", {"size": 18, "bold": True, "color": ACCENT2}),
+    ("$ ai-review config set ollama base_url http://192.168.1.100:11434", {"size": 14, "color": ACCENT2, "indent": 1}),
+    ("$ ai-review health-check", {"size": 14, "color": ACCENT2, "indent": 1}),
+])
+
+# ── End ──
 make_title_slide(
     "Thank You",
     "Questions?  →  github.com/jame472518-design/ai-code-review"

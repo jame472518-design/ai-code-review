@@ -94,8 +94,8 @@ def get_review_prompt(custom_rules: str | None = None) -> str:
     if not custom_rules:
         return _REVIEW_PROMPT
     return _REVIEW_PROMPT.replace(
-        "\nDo not report:",
-        f"\nAdditional rules:\n- {custom_rules}\n\nDo not report:",
+        "\nIMPORTANT — Do NOT report:",
+        f"\nAdditional rules:\n- {custom_rules}\n\nIMPORTANT — Do NOT report:",
     )
 
 

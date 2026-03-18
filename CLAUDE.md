@@ -141,6 +141,7 @@ pre-push flow:
 - **Verbose mode**: `--verbose` / `-v` flag enables DEBUG logging for troubleshooting.
 - **Graceful degradation**: `--graceful` flag makes LLM failures non-blocking (print warning, exit 0). All hook scripts use `--graceful` by default. Format validation in commit-msg always blocks regardless of `--graceful`.
 - **Provider error wrapping**: All provider `_chat()` methods wrap raw exceptions (httpx.HTTPError, openai.APIError) in `ProviderError`. CLI catches `ProviderError` uniformly.
+- **Fixed interview questions**: Interactive menu option 3 loads predefined questions from `interview-questions.txt` (three-layer fallback: config path → `~/.config/ai-code-review/interview-questions.txt` → bundled template). User answers each question, then `reviewer.interview_generate()` produces the commit message. Teams can customize questions to enforce a standard commit workflow.
 - **Commit message generation**: `generate-commit-msg` command generates commit message description from staged diff via LLM. Prepends `[project_id]` from `commit.project_id` config if set. Skips for merge/squash/amend/user-provided messages.
 - **Pre-push review**: `pre-push` command reads ref data from stdin, collects diffs via `get_push_diff()`, runs AI review. Handles new branches (merge-base with main/master), deletions (skip), and normal pushes.
 

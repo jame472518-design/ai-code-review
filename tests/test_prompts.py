@@ -24,7 +24,7 @@ class TestReviewPrompt:
 
     def test_custom_rules_before_do_not_report(self):
         prompt = get_review_prompt("check use-after-free")
-        do_not_pos = prompt.index("Do not report:")
+        do_not_pos = prompt.index("Do NOT report:")
         rules_pos = prompt.index("Additional rules:")
         assert rules_pos < do_not_pos
 

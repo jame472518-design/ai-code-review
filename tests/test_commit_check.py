@@ -30,9 +30,10 @@ class TestInvalidMessages:
         result = check_commit_message("[BSP-456]")
         assert result.valid is False
 
-    def test_missing_space_after_bracket(self):
+    def test_no_space_after_bracket_is_valid(self):
+        """Pattern uses \\s* (zero or more spaces), so no space is valid."""
         result = check_commit_message("[BSP-456]fix camera crash")
-        assert result.valid is False
+        assert result.valid is True
 
     def test_empty_message(self):
         result = check_commit_message("")

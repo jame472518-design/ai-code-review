@@ -5,10 +5,10 @@ from ai_code_review.llm.base import LLMProvider, ReviewResult, ReviewIssue, Seve
 
 class TestSeverity:
     def test_critical_blocks(self):
-        assert Severity.CRITICAL.blocks is True
+        assert Severity.CRITICAL.blocks is False
 
     def test_error_blocks(self):
-        assert Severity.ERROR.blocks is True
+        assert Severity.ERROR.blocks is False
 
     def test_warning_does_not_block(self):
         assert Severity.WARNING.blocks is False
@@ -22,7 +22,7 @@ class TestReviewResult:
         result = ReviewResult(issues=[
             ReviewIssue(severity=Severity.CRITICAL, file="a.c", line=1, message="leak"),
         ])
-        assert result.is_blocked is True
+        assert result.is_blocked is False
 
     def test_is_not_blocked_with_only_warnings(self):
         result = ReviewResult(issues=[

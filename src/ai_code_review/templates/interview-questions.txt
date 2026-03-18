@@ -1,0 +1,16 @@
+# 固定問題（可自行編輯增減）
+# 每行一個問題，# 開頭為註解，空行忽略
+# 問題對應 commit template 各欄位，回答後由 AI 組合生成 commit message
+
+# --- Header 欄位 ---
+Status? (NEW / UPDATE)
+Which team? (BSP / CP / AP)
+Category? (Sensor / Wifi / APK / Camera / Display / Audio / Other)
+Bug or ticket number? (e.g. JIRA-0001, or none)
+Target SKU? (e.g. NAL, or none)
+Short description — one line summary of this change?
+
+# --- Body 欄位 ---
+Impact projects — which projects are affected? (若多個用逗號分隔)
+Description — what did you change and why? (可列多點，用逗號或分號分隔)
+How was this tested? (測試方法/步驟，可列多點)

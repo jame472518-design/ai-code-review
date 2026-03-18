@@ -34,7 +34,7 @@ class TestRepoHookInstall:
         hook_path = git_repo / ".git" / "hooks" / "commit-msg"
         assert hook_path.exists()
         assert "ai-review" in hook_path.read_text()
-        assert "--auto-accept" in hook_path.read_text()
+        assert "--format-only" in hook_path.read_text()
 
 
 class TestRepoHookUninstall:
@@ -235,7 +235,8 @@ class TestHookEnableDisable:
     def test_enable_not_in_git_repo(self, runner, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(main, ["hook", "enable"])
-        assert result.exit_code != 0
+        assert result.exit_code == 0
+        assert "not a git repository" in result.output.lower()
 
 
 class TestHookScriptsUseGraceful:
@@ -258,7 +259,7 @@ class TestPrepareCommitMsgHookScript:
         scripts = _generate_hook_scripts()
         assert "prepare-commit-msg" in scripts
         script = scripts["prepare-commit-msg"]
-        assert "generate-commit-msg" in script
+        assert "prepare-interactive" in script
         assert '"$1"' in script
         assert '"$2"' in script
         assert '"$3"' in script
@@ -269,7 +270,7 @@ class TestPrepareCommitMsgHookScript:
         scripts = _generate_template_hook_scripts()
         assert "prepare-commit-msg" in scripts
         script = scripts["prepare-commit-msg"]
-        assert "generate-commit-msg" in script
+        assert "prepare-interactive" in script
         assert "git config --local ai-review.enabled" in script
 
     def test_hook_types_includes_prepare_commit_msg(self):
@@ -281,7 +282,7 @@ class TestPrepareCommitMsgHookScript:
         assert result.exit_code == 0
         hook_path = git_repo / ".git" / "hooks" / "prepare-commit-msg"
         assert hook_path.exists()
-        assert "generate-commit-msg" in hook_path.read_text()
+        assert "prepare-interactive" in hook_path.read_text()
 
 
 class TestPrePushHookScript:

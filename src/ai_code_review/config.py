@@ -30,6 +30,9 @@ DEFAULT_COMMIT_TEMPLATE_FILE = "commit-template.txt"
 # Default generate prompt filename (inside config dir)
 DEFAULT_GENERATE_PROMPT_FILE = "generate-prompt.txt"
 
+# Default interview questions filename (inside config dir)
+DEFAULT_INTERVIEW_QUESTIONS_FILE = "interview-questions.txt"
+
 # Mapping of provider name to the config key that holds the env var name for its token.
 _TOKEN_ENV_KEYS: dict[str, str] = {
     "openai": "api_key_env",

@@ -30,7 +30,8 @@ class TestReviewCommand:
 
     @patch("ai_code_review.cli._build_provider")
     @patch("ai_code_review.cli.get_staged_diff")
-    def test_exits_1_when_blocked(self, mock_diff, mock_build, runner):
+    def test_exits_0_when_critical(self, mock_diff, mock_build, runner):
+        """Severity.blocks is always False (never block commits), so exit 0."""
         mock_diff.return_value = "some diff"
         mock_provider = MagicMock()
         mock_provider.review_code.return_value = ReviewResult(issues=[
@@ -40,7 +41,7 @@ class TestReviewCommand:
         mock_build.return_value = mock_provider
 
         result = runner.invoke(main, [])
-        assert result.exit_code == 1
+        assert result.exit_code == 0
 
     @patch("ai_code_review.cli._build_provider")
     @patch("ai_code_review.cli.get_staged_diff")
@@ -67,6 +68,7 @@ class TestReviewCommand:
         mock_config.get.side_effect = lambda s, k: {
             ("review", "include_extensions"): "c,cpp",
             ("review", "custom_rules"): "check integer overflow",
+            ("review", "max_diff_lines"): None,
         }.get((s, k))
         mock_config.resolve_provider.return_value = "ollama"
         mock_config_cls.return_value = mock_config
@@ -316,7 +318,8 @@ class TestGracefulFlag:
 
     @patch("ai_code_review.cli._build_provider")
     @patch("ai_code_review.cli.get_staged_diff")
-    def test_graceful_still_blocks_on_review_issues(self, mock_diff, mock_build, runner):
+    def test_graceful_does_not_block_on_review_issues(self, mock_diff, mock_build, runner):
+        """Severity.blocks is always False, so critical issues don't block."""
         mock_diff.return_value = "some diff"
         mock_provider = MagicMock()
         mock_provider.review_code.return_value = ReviewResult(issues=[
@@ -324,7 +327,7 @@ class TestGracefulFlag:
         ])
         mock_build.return_value = mock_provider
         result = runner.invoke(main, ["--graceful"])
-        assert result.exit_code == 1
+        assert result.exit_code == 0
 
     @patch("ai_code_review.cli._build_provider")
     @patch("ai_code_review.cli.get_staged_diff")
@@ -368,7 +371,8 @@ class TestPrePushCommand:
     @patch("ai_code_review.cli.Config")
     @patch("ai_code_review.cli._build_provider")
     @patch("ai_code_review.cli.get_push_diff")
-    def test_blocks_on_critical_issue(self, mock_push_diff, mock_build, mock_config_cls, runner):
+    def test_does_not_block_on_critical_issue(self, mock_push_diff, mock_build, mock_config_cls, runner):
+        """Severity.blocks is always False, so critical issues don't block push."""
         mock_push_diff.return_value = "some diff"
         mock_config = MagicMock()
         mock_config.get.return_value = None
@@ -381,7 +385,7 @@ class TestPrePushCommand:
         mock_build.return_value = mock_provider
         stdin_data = "refs/heads/main abc123 refs/heads/main def456\n"
         result = runner.invoke(main, ["pre-push"], input=stdin_data)
-        assert result.exit_code == 1
+        assert result.exit_code == 0
 
     @patch("ai_code_review.cli.get_push_diff")
     def test_empty_diff_exits_clean(self, mock_push_diff, runner):

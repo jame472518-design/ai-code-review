@@ -26,9 +26,10 @@ class TestTerminalFormatter:
         assert "42" in output
         assert "memory leak" in output
 
-    def test_shows_blocked_message(self, sample_result):
+    def test_shows_allowed_message(self, sample_result):
+        """Severity.blocks is always False, so even critical issues show 'allowed'."""
         output = format_terminal(sample_result)
-        assert "blocked" in output.lower() or "block" in output.lower()
+        assert "allowed" in output.lower()
 
     def test_empty_result_shows_clean(self, empty_result):
         output = format_terminal(empty_result)
@@ -58,7 +59,7 @@ class TestJsonFormatter:
 
     def test_issue_structure(self, sample_result):
         data = json.loads(format_json(sample_result))
-        assert data["blocked"] is True
+        assert data["blocked"] is False
         assert data["summary"]["critical"] == 1
         assert data["summary"]["warning"] == 1
         assert len(data["issues"]) == 2

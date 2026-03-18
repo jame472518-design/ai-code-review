@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.markup import escape as rich_escape
 
 from .commit_check import check_commit_message
-from .config import DEFAULT_COMMIT_TEMPLATE_FILE, DEFAULT_GENERATE_PROMPT_FILE, DEFAULT_INCLUDE_EXTENSIONS, DEFAULT_MAX_DIFF_LINES, Config
+from .config import DEFAULT_COMMIT_TEMPLATE_FILE, DEFAULT_GENERATE_PROMPT_FILE, DEFAULT_INCLUDE_EXTENSIONS, DEFAULT_INTERVIEW_QUESTIONS_FILE, DEFAULT_MAX_DIFF_LINES, Config
 from .exceptions import ProviderError, ProviderNotConfiguredError
 from .formatters import format_json, format_markdown, format_terminal
 from .git import GitError, get_push_diff, get_staged_diff, get_staged_diff_stat, get_recent_commits
@@ -353,6 +353,46 @@ def _load_generate_prompt(config: Config) -> str | None:
     return None
 
 
+def _load_interview_questions(config: Config) -> list[str]:
+    """Load fixed interview questions from config path, config dir, or package.
+
+    Returns a list of question strings (comments and blank lines filtered out).
+    """
+    import importlib.resources
+
+    content: str | None = None
+
+    # 1. Config-specified path
+    custom_path = config.get("commit", "interview_questions_file")
+    if custom_path:
+        p = Path(custom_path).expanduser()
+        if p.exists():
+            content = p.read_text(encoding="utf-8")
+
+    # 2. Default config dir
+    if content is None:
+        default_path = Path.home() / ".config" / "ai-code-review" / DEFAULT_INTERVIEW_QUESTIONS_FILE
+        if default_path.exists():
+            content = default_path.read_text(encoding="utf-8")
+
+    # 3. Bundled in package
+    if content is None:
+        try:
+            templates = importlib.resources.files("ai_code_review") / "templates"
+            src = templates / "interview-questions.txt"
+            content = src.read_text(encoding="utf-8")
+        except (FileNotFoundError, TypeError):
+            pass
+
+    if not content:
+        return []
+
+    return [
+        line.strip() for line in content.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
 def _parse_template_fields(template_content: str) -> list[dict]:
     """Parse template into structured fields.
 
@@ -493,14 +533,15 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
     console.print("\n[bold]Commit Message Assistant[/]")
     console.print("  [bold cyan]1[/] Load template       - 載入模板")
     console.print("  [bold cyan]2[/] Manual draft        - 輸入草稿 → AI 優化")
-    console.print("  [bold cyan]3[/] LLM interview       - AI 問你問題 → 生成")
-    console.print("  [bold cyan]4[/] LLM auto-generate   - AI 從 diff 自動生成")
+    console.print("  [bold cyan]3[/] Fixed questions     - 固定問題 → 回答 → AI 生成")
+    console.print("  [bold cyan]4[/] LLM interview       - AI 問你問題 → 生成")
+    console.print("  [bold cyan]5[/] LLM auto-generate   - AI 從 diff 自動生成")
     console.print("  [bold cyan]s[/] Skip                - 跳過，直接進編輯器")
 
     try:
         choice = click.prompt(
             "Choice",
-            type=click.Choice(["1", "2", "3", "4", "s"], case_sensitive=False),
+            type=click.Choice(["1", "2", "3", "4", "5", "s"], case_sensitive=False),
             default="s",
         )
     except (EOFError, click.Abort):
@@ -512,7 +553,7 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
         msg_path.write_text(template_content, encoding="utf-8")
         console.print("[green]Template loaded.[/]")
 
-    elif choice in ("2", "3", "4"):
+    elif choice in ("2", "3", "4", "5"):
         # Shared setup for LLM features
         cli_provider = ctx.obj.get("cli_provider") if ctx.obj else None
         cli_model = ctx.obj.get("cli_model") if ctx.obj else None
@@ -592,7 +633,48 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
                 console.print(f"[green]Optimized:[/] {rich_escape(improved)}")
 
         elif choice == "3":
-            # Feature 3: LLM interview — AI asks questions, user answers, AI generates
+            # Feature 3: Fixed questions — user answers predefined questions, AI generates
+            questions = _load_interview_questions(config)
+            if not questions:
+                console.print("[yellow]No interview questions found.[/]")
+                console.print("[dim]Run: ai-review config init-generate-prompt[/]")
+                return
+
+            if not diff:
+                console.print("[yellow]No staged changes found.[/]")
+                return
+
+            console.print(f"\n[bold]Fixed interview questions:[/]")
+            answers = []
+            try:
+                for q in questions:
+                    console.print(f"  [cyan]{q}[/]")
+                    ans = input("  → ").strip()
+                    answers.append(f"{q}\n  → {ans}" if ans else f"{q}\n  → (skipped)")
+            except (EOFError, KeyboardInterrupt):
+                console.print("[yellow]Cancelled.[/]")
+                return
+
+            answers_text = "\n".join(answers)
+
+            with console.status(f"[bold cyan]AI generating commit message... ({model_name})[/]"):
+                try:
+                    generated = reviewer.interview_generate(answers_text, diff, template=template_for_llm)
+                except ProviderError as e:
+                    if graceful:
+                        console.print(f"[yellow]Warning: LLM generate failed — {rich_escape(str(e))}[/]")
+                    else:
+                        console.print(f"[bold red]{rich_escape(str(e))}[/]")
+                    return
+
+            if generated and generated.strip():
+                if project_id and not generated.startswith("["):
+                    generated = f"[{project_id}] {generated}"
+                msg_path.write_text(generated + "\n", encoding="utf-8")
+                console.print(f"[green]Generated:[/]\n{rich_escape(generated)}")
+
+        elif choice == "4":
+            # Feature 4: LLM interview — AI asks questions, user answers, AI generates
             if not diff:
                 console.print("[yellow]No staged changes found.[/]")
                 return
@@ -643,7 +725,7 @@ def prepare_interactive(ctx: click.Context, message_file: str, source: str, sha:
                 console.print(f"[green]Generated:[/]\n{rich_escape(generated)}")
 
         else:
-            # Feature 4: Two-stage LLM auto-generate from diff
+            # Feature 5: Two-stage LLM auto-generate from diff
             if not diff:
                 console.print("[yellow]No staged changes found.[/]")
                 return
@@ -913,45 +995,59 @@ def config_init_template(force: bool) -> None:
 
 
 @config_group.command("init-generate-prompt")
-@click.option("--force", is_flag=True, help="Overwrite existing generate prompt file.")
+@click.option("--force", is_flag=True, help="Overwrite existing files.")
 def config_init_generate_prompt(force: bool) -> None:
-    """Copy bundled generate prompt to config dir and set config."""
+    """Copy bundled generate prompt and interview questions to config dir."""
     import importlib.resources
 
     _pkg_dir = Path(__file__).resolve().parent
     _project_root = _pkg_dir.parent.parent
     _is_source_tree = (_project_root / "pyproject.toml").exists()
-    _src_file = _pkg_dir / "templates" / "generate-prompt.txt"
-
-    if _is_source_tree and _src_file.exists():
-        src = _src_file
-    else:
-        templates = importlib.resources.files("ai_code_review") / "templates"
-        src = templates / "generate-prompt.txt"
-        _is_source_tree = False
-    content = src.read_text(encoding="utf-8")
 
     dest_dir = Path.home() / ".config" / "ai-code-review"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / DEFAULT_GENERATE_PROMPT_FILE
-
-    if dest.exists() and not force:
-        console.print(f"[yellow]Generate prompt already exists: {dest}[/]")
-        console.print("[yellow]Use --force to overwrite.[/]")
-        return
-
-    dest.write_text(content, encoding="utf-8")
-    console.print(f"[green]Generate prompt copied to: {dest}[/]")
-
     config = Config()
-    config.set("commit", "generate_prompt_file", str(dest))
-    console.print(f"[green]Config set: commit.generate_prompt_file = {dest}[/]")
 
+    # --- 1. Generate prompt ---
+    _src_prompt = _pkg_dir / "templates" / "generate-prompt.txt"
+    if _is_source_tree and _src_prompt.exists():
+        src_prompt = _src_prompt
+    else:
+        templates = importlib.resources.files("ai_code_review") / "templates"
+        src_prompt = templates / "generate-prompt.txt"
+
+    dest_prompt = dest_dir / DEFAULT_GENERATE_PROMPT_FILE
+    if dest_prompt.exists() and not force:
+        console.print(f"[yellow]Generate prompt already exists: {dest_prompt}[/]")
+    else:
+        dest_prompt.write_text(src_prompt.read_text(encoding="utf-8"), encoding="utf-8")
+        config.set("commit", "generate_prompt_file", str(dest_prompt))
+        console.print(f"[green]Generate prompt copied to: {dest_prompt}[/]")
+
+    # --- 2. Interview questions ---
+    _src_questions = _pkg_dir / "templates" / "interview-questions.txt"
+    if _is_source_tree and _src_questions.exists():
+        src_questions = _src_questions
+    else:
+        templates = importlib.resources.files("ai_code_review") / "templates"
+        src_questions = templates / "interview-questions.txt"
+
+    dest_questions = dest_dir / DEFAULT_INTERVIEW_QUESTIONS_FILE
+    if dest_questions.exists() and not force:
+        console.print(f"[yellow]Interview questions already exist: {dest_questions}[/]")
+    else:
+        dest_questions.write_text(src_questions.read_text(encoding="utf-8"), encoding="utf-8")
+        config.set("commit", "interview_questions_file", str(dest_questions))
+        console.print(f"[green]Interview questions copied to: {dest_questions}[/]")
+
+    # --- Guide ---
     if _is_source_tree:
-        console.print(f"[dim]Edit source prompt: {_src_file}[/]")
+        console.print(f"[dim]Edit source prompt: {_src_prompt}[/]")
+        console.print(f"[dim]Edit source questions: {_src_questions}[/]")
         console.print("[dim]After editing, run: ai-review config init-generate-prompt --force[/]")
     else:
-        console.print(f"[dim]Edit prompt: {dest}[/]")
+        console.print(f"[dim]Edit prompt: {dest_prompt}[/]")
+        console.print(f"[dim]Edit questions: {dest_questions}[/]")
 
 
 def _print_config_section(name: str, data: dict) -> None:
