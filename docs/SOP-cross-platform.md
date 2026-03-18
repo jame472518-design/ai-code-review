@@ -273,6 +273,9 @@ ai-review config set commit project_id "PROJ-1"
 # 初始化 commit 模板
 ai-review config init-template
 
+# 初始化 AI 生成 prompt（自訂 AI 生成行為）
+ai-review config init-generate-prompt
+
 # 設定審查副檔名（預設不限制，審查所有檔案；有需要時再限縮）
 ai-review config set review include_extensions "c,cpp,h,py"
 ```
@@ -421,26 +424,40 @@ git commit --no-verify -m "[hotfix] emergency fix"
 ```
 Commit Message Assistant
   1 Load template       - 載入模板
-  2 LLM optimize        - AI 優化已有文字
-  3 LLM auto-generate   - AI 自動生成
+  2 Manual draft        - 輸入草稿 → AI 優化
+  3 LLM interview       - AI 問你問題 → 生成
+  4 LLM auto-generate   - AI 從 diff 自動生成
   s Skip                - 跳過，直接進編輯器
-Choice [1/2/3/s]:
+Choice [1/2/3/4/s]:
 ```
 
 | 選項 | 功能 | 說明 |
 |------|------|------|
 | **1** | 載入模板 | 將 commit template 貼入編輯器 |
-| **2** | AI 優化 | 輸入草稿文字，AI 優化格式與內容 |
-| **3** | AI 自動生成 | 從 staged diff 全自動生成 commit message |
+| **2** | 手動草稿 → AI 優化 | 輸入草稿文字（Enter 兩次結束），AI 根據 diff 和模板優化 |
+| **3** | LLM interview | AI 根據 diff 產生中英雙語問題，你回答後 AI 生成 commit message |
+| **4** | AI 自動生成（兩階段） | Stage 1: AI 分析 diff → Stage 2: 根據摘要生成 commit message |
 | **s** | 跳過 | 直接進入編輯器手動編寫 |
 
 > 無論選擇哪個選項，最終都會進入編輯器讓你確認/修改後才 commit。
 
-### 自訂模板
+### 選項 4 兩階段流程
+
+```
+Stage 1: AI 分析（file stats + recent commits + diff）
+         ↓ 產生結構化變更摘要
+Stage 2: AI 根據摘要 + 模板格式生成 commit message
+         ↓ 寫入編輯器供確認
+```
+
+### 自訂模板與 AI Prompt
 
 ```bash
-# 初始化模板到 config 目錄
+# 初始化 commit 模板
 ai-review config init-template
+
+# 初始化 AI 生成 prompt（自訂 AI 生成行為）
+ai-review config init-generate-prompt
 
 # 編輯模板
 # Windows:
@@ -448,7 +465,19 @@ notepad %USERPROFILE%\.config\ai-code-review\commit-template.txt
 
 # macOS / Linux:
 vim ~/.config/ai-code-review/commit-template.txt
+
+# 編輯 AI prompt
+# Windows:
+notepad %USERPROFILE%\.config\ai-code-review\generate-prompt.txt
+
+# macOS / Linux:
+vim ~/.config/ai-code-review/generate-prompt.txt
 ```
+
+| 檔案 | 用途 | 更新指令 |
+|------|------|----------|
+| `commit-template.txt` | Commit message 格式模板 | `ai-review config init-template --force` |
+| `generate-prompt.txt` | AI 生成 commit message 的 prompt | `ai-review config init-generate-prompt --force` |
 
 ---
 
@@ -462,6 +491,7 @@ pip install -e .
 ai-review config set provider default ollama
 ai-review config set ollama model llama3.2
 ai-review config init-template
+ai-review config init-generate-prompt
 
 # 啟用（在 repo 裡）
 cd ~/my-project
@@ -537,8 +567,9 @@ git commit    # 不加 -m，自動出現選單
 ```
 Commit Message Assistant
   1 Load template       - 載入模板
-  2 LLM optimize        - AI 優化已有文字
-  3 LLM auto-generate   - AI 自動生成
+  2 Manual draft        - 輸入草稿 → AI 優化
+  3 LLM interview       - AI 問你問題 → 生成
+  4 LLM auto-generate   - AI 從 diff 自動生成
   s Skip                - 跳過
 ```
 
@@ -546,7 +577,8 @@ Commit Message Assistant
 |--------|-------------|
 | **1** | 忘了格式，載入模板填寫 |
 | **2** | 已經有草稿，讓 AI 潤飾 |
-| **3** | 懶得寫，AI 看 diff 自動生成 |
+| **3** | 不知道怎麼描述，讓 AI 問你問題後生成 |
+| **4** | 懶得寫，AI 看 diff 自動生成（兩階段） |
 | **s** | 自己寫，不需要 AI |
 
 > 選完後都會進編輯器讓你確認才 commit。
@@ -755,6 +787,7 @@ ai-review --provider openai --model gpt-4o
 | `ai-review config get provider default` | 取得單一設定值 |
 | `ai-review config set <section> <key> <value>` | 設定值 |
 | `ai-review config init-template` | 初始化 commit 模板 |
+| `ai-review config init-generate-prompt` | 初始化 AI 生成 prompt |
 
 ### Hook 管理
 
@@ -896,8 +929,9 @@ ai-review config set ollama base_url "${OLLAMA_URL:-http://localhost:11434}"
 ai-review config set ollama model "$MODEL"
 ai-review config set ollama timeout 300
 
-# 初始化模板
+# 初始化模板與 AI prompt
 ai-review config init-template
+ai-review config init-generate-prompt
 
 # 安裝 hooks
 ai-review hook install --template
@@ -936,6 +970,7 @@ ai-review config set ollama base_url "http://localhost:11434"
 ai-review config set ollama model "llama3.2"
 ai-review config set ollama timeout 300
 ai-review config init-template
+ai-review config init-generate-prompt
 ai-review hook install --template
 ai-review health-check
 
