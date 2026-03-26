@@ -380,6 +380,7 @@ _EXT_TO_PROMPT: dict[str, str] = {
     "c": "c", "h": "c", "cpp": "c", "hpp": "c", "cc": "c", "cxx": "c",
     "py": "py", "pyw": "py",
     "java": "java",
+    "dts": "dts", "dtsi": "dts", "dto": "dts", "dtbo": "dts",
 }
 
 
