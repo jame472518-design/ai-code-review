@@ -13,7 +13,7 @@ from .commit_check import check_commit_message
 from .config import DEFAULT_COMMIT_TEMPLATE_FILE, DEFAULT_GENERATE_PROMPT_FILE, DEFAULT_INCLUDE_EXTENSIONS, DEFAULT_INTERVIEW_QUESTIONS_FILE, DEFAULT_MAX_DIFF_LINES, Config
 from .exceptions import ProviderError, ProviderNotConfiguredError
 from .formatters import format_json, format_markdown, format_terminal
-from .git import GitError, get_push_diff, get_staged_diff, get_staged_diff_stat, get_recent_commits
+from .git import GitError, get_push_diff, get_staged_diff, get_staged_diff_stat, get_recent_commits, split_diff_by_extension
 from .llm.base import LLMProvider
 from .llm.enterprise import EnterpriseProvider
 from .llm.ollama import OllamaProvider
@@ -120,10 +120,6 @@ def _review(ctx: click.Context) -> None:
     # Truncate large diffs
     max_lines_raw = config.get("review", "max_diff_lines")
     max_lines = int(max_lines_raw) if max_lines_raw else DEFAULT_MAX_DIFF_LINES
-    lines = diff.split("\n")
-    if len(lines) > max_lines:
-        console.print(f"[yellow]Warning: diff truncated to {max_lines} lines (original: {len(lines)} lines)[/]")
-        diff = "\n".join(lines[:max_lines]) + f"\n... (truncated: showing first {max_lines} of {len(lines)} lines)"
 
     custom_rules = config.get("review", "custom_rules")
 
@@ -140,21 +136,47 @@ def _review(ctx: click.Context) -> None:
         sys.exit(1)
 
     reviewer = Reviewer(provider=provider)
-    try:
-        result = reviewer.review_diff(diff, custom_rules=custom_rules)
-    except ProviderError as e:
-        if graceful:
-            console.print(f"[yellow]Warning: LLM provider error: {rich_escape(str(e))}[/]")
-            return
-        console.print(f"[bold red]{rich_escape(str(e))}[/]")
-        sys.exit(1)
 
+    # Split diff by extension and review each group with its own prompt
+    from .llm.base import ReviewResult as _ReviewResult
+    ext_groups = split_diff_by_extension(diff)
+    all_issues = []
+
+    for ext, ext_diff in ext_groups.items():
+        if not ext_diff.strip():
+            continue
+
+        # Truncate per-group diff
+        lines = ext_diff.split("\n")
+        if len(lines) > max_lines:
+            console.print(f"[yellow]Warning: .{ext or '?'} diff truncated to {max_lines} lines (original: {len(lines)} lines)[/]")
+            ext_diff = "\n".join(lines[:max_lines]) + f"\n... (truncated: showing first {max_lines} of {len(lines)} lines)"
+
+        prompt = _load_review_prompt(config, ext)
+        # Append custom rules if configured
+        if custom_rules and "IMPORTANT" in prompt:
+            prompt = prompt.replace(
+                "\nIMPORTANT",
+                f"\nAdditional rules:\n- {custom_rules}\n\nIMPORTANT",
+            )
+
+        ext_label = f".{ext}" if ext else "other"
+        console.print(f"[dim]Reviewing {ext_label} files...[/]")
+
+        try:
+            result = reviewer.review_diff(ext_diff, prompt_override=prompt)
+            all_issues.extend(result.issues)
+        except ProviderError as e:
+            if graceful:
+                console.print(f"[yellow]Warning: LLM review failed for {ext_label} — {rich_escape(str(e))}[/]")
+            else:
+                console.print(f"[bold red]{rich_escape(str(e))}[/]")
+                sys.exit(1)
+
+    merged_result = _ReviewResult(issues=all_issues)
     formatters = {"terminal": format_terminal, "markdown": format_markdown, "json": format_json}
-    output = formatters[output_format](result)
+    output = formatters[output_format](merged_result)
     click.echo(output)
-
-    if result.is_blocked:
-        sys.exit(1)
 
 
 @main.command("check-commit")
@@ -351,6 +373,65 @@ def _load_generate_prompt(config: Config) -> str | None:
 
     # 3. No custom prompt — use built-in default
     return None
+
+
+# Extension → review prompt template name mapping
+_EXT_TO_PROMPT: dict[str, str] = {
+    "c": "c", "h": "c", "cpp": "c", "hpp": "c", "cc": "c", "cxx": "c",
+    "py": "py", "pyw": "py",
+    "java": "java",
+}
+
+
+def _load_review_prompt(config: Config, ext: str) -> str:
+    """Load review prompt for a file extension.
+
+    Lookup order:
+    1. Config-specified path: review.prompt_{ext}_file
+    2. Config dir: ~/.config/ai-code-review/review-{ext}.txt
+    3. Bundled template: templates/review-{ext}.txt
+    4. Fallback to review-default.txt (same lookup chain)
+    """
+    import importlib.resources
+
+    prompt_name = _EXT_TO_PROMPT.get(ext, ext)
+
+    for name in [prompt_name, "default"]:
+        # 1. Config-specified path
+        config_key = f"prompt_{name}_file"
+        custom_path = config.get("review", config_key)
+        if custom_path:
+            p = Path(custom_path).expanduser()
+            if p.exists():
+                content = p.read_text(encoding="utf-8")
+                return _strip_comment_lines(content)
+
+        # 2. Config dir
+        default_path = Path.home() / ".config" / "ai-code-review" / f"review-{name}.txt"
+        if default_path.exists():
+            content = default_path.read_text(encoding="utf-8")
+            return _strip_comment_lines(content)
+
+        # 3. Bundled in package
+        try:
+            templates = importlib.resources.files("ai_code_review") / "templates"
+            src = templates / f"review-{name}.txt"
+            content = src.read_text(encoding="utf-8")
+            return _strip_comment_lines(content)
+        except (FileNotFoundError, TypeError):
+            continue
+
+    # Ultimate fallback: use built-in default from prompts.py
+    from .prompts import get_review_prompt
+    return get_review_prompt()
+
+
+def _strip_comment_lines(content: str) -> str:
+    """Strip # comment lines from template content."""
+    return "\n".join(
+        line for line in content.splitlines()
+        if not line.startswith("#")
+    ).strip()
 
 
 def _load_interview_questions(config: Config) -> list[str]:

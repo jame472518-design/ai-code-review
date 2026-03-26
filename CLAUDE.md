@@ -129,8 +129,9 @@ pre-push flow:
 - **JSON response parsing**: Shared `_parse_review()` in `LLMProvider` base class handles markdown fences, malformed items, and invalid severity gracefully.
 - **Exception hierarchy**: `ProviderNotConfiguredError` / `ProviderError` replace `sys.exit()` control flow. CLI boundary catches and exits.
 - **Config resolution order**: `--provider` CLI flag > `config.toml [provider].default` > auto-detect. API tokens always read from env vars (never in config files).
-- **Severity blocking**: `Severity.blocks` property — `critical`/`error` return True (block commit), `warning`/`info` return False.
-- **Prompt templates** in `prompts.py`: review prompt focuses on memory leaks, null pointer, race conditions, hardcoded secrets, buffer overflow. Explicitly excludes style/naming/refactoring suggestions.
+- **Severity blocking**: `Severity.blocks` always returns `False` — review is advisory only, never blocks commits.
+- **Per-extension review prompts**: Pre-commit review splits diff by file extension and loads `review-{ext}.txt` prompt per group (e.g. `review-c.txt`, `review-py.txt`, `review-java.txt`). Fallback to `review-default.txt`. Three-layer lookup: config path (`review.prompt_{ext}_file`) → `~/.config/ai-code-review/review-{ext}.txt` → bundled template. Extension mapping: c/h/cpp/hpp → `c`, py → `py`, java → `java`.
+- **Prompt templates** in `templates/`: `review-c.txt` (C/C++), `review-py.txt` (Python), `review-java.txt` (Java), `review-default.txt` (fallback). Lines starting with `#` are stripped. Explicitly excludes style/naming/refactoring suggestions.
 - **Non-interactive mode**: `--auto-accept` flag or `AI_REVIEW_AUTO_ACCEPT=1` env var skips interactive prompt in commit-msg hook, auto-accepts AI suggestion.
 - **Opt-in mechanism**: template hooks check `git config --local ai-review.enabled`; repos without opt-in are skipped entirely. No repo file pollution.
 - **File extension filter**: `review.include_extensions` config (default: `c,cpp,h,hpp,java`); only matching files are sent to LLM.

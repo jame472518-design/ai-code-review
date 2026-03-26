@@ -58,6 +58,43 @@ def get_commit_diff(from_ref: str, to_ref: str, extensions: list[str] | None = N
     return _run_git(*args).strip()
 
 
+def split_diff_by_extension(diff: str) -> dict[str, str]:
+    """Split a unified diff into groups keyed by file extension.
+
+    Returns a dict like {"c": "diff --git ...", "py": "diff --git ..."}
+    Files without an extension are grouped under "".
+    """
+    import os
+    groups: dict[str, list[str]] = {}
+    current_ext = ""
+    current_lines: list[str] = []
+
+    for line in diff.split("\n"):
+        if line.startswith("diff --git "):
+            # Flush previous file
+            if current_lines:
+                groups.setdefault(current_ext, []).extend(current_lines)
+            # Parse extension from "diff --git a/path/file.ext b/path/file.ext"
+            parts = line.split()
+            if len(parts) >= 4:
+                filepath = parts[3]  # b/path/file.ext
+                if filepath.startswith("b/"):
+                    filepath = filepath[2:]
+                _, ext = os.path.splitext(filepath)
+                current_ext = ext.lstrip(".").lower()
+            else:
+                current_ext = ""
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+
+    # Flush last file
+    if current_lines:
+        groups.setdefault(current_ext, []).extend(current_lines)
+
+    return {ext: "\n".join(lines) for ext, lines in groups.items()}
+
+
 _ZERO_SHA = "0" * 40
 
 
