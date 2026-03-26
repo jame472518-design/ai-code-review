@@ -95,6 +95,24 @@ def split_diff_by_extension(diff: str) -> dict[str, str]:
     return {ext: "\n".join(lines) for ext, lines in groups.items()}
 
 
+def get_staged_file_paths(extensions: list[str] | None = None) -> list[str]:
+    """Return list of staged file paths."""
+    args = ["diff", "--cached", "--name-only"]
+    if extensions:
+        args.append("--")
+        args.extend(f"*.{ext.lstrip('.')}" for ext in extensions)
+    output = _run_git(*args).strip()
+    return [p for p in output.splitlines() if p.strip()] if output else []
+
+
+def get_staged_file_content(filepath: str) -> str:
+    """Return the staged (index) version of a file via git show :path."""
+    try:
+        return _run_git("show", f":{filepath}")
+    except GitError:
+        return ""
+
+
 _ZERO_SHA = "0" * 40
 
 

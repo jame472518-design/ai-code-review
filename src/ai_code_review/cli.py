@@ -13,7 +13,7 @@ from .commit_check import check_commit_message
 from .config import DEFAULT_COMMIT_TEMPLATE_FILE, DEFAULT_GENERATE_PROMPT_FILE, DEFAULT_INCLUDE_EXTENSIONS, DEFAULT_INTERVIEW_QUESTIONS_FILE, DEFAULT_MAX_DIFF_LINES, Config
 from .exceptions import ProviderError, ProviderNotConfiguredError
 from .formatters import format_json, format_markdown, format_terminal
-from .git import GitError, get_push_diff, get_staged_diff, get_staged_diff_stat, get_recent_commits, split_diff_by_extension
+from .git import GitError, get_push_diff, get_staged_diff, get_staged_diff_stat, get_recent_commits, split_diff_by_extension, get_staged_file_paths, get_staged_file_content
 from .llm.base import LLMProvider
 from .llm.enterprise import EnterpriseProvider
 from .llm.ollama import OllamaProvider
@@ -137,6 +137,12 @@ def _review(ctx: click.Context) -> None:
 
     reviewer = Reviewer(provider=provider)
 
+    # Collect staged file paths for full-context review
+    try:
+        staged_paths = get_staged_file_paths(extensions)
+    except GitError:
+        staged_paths = []
+
     # Split diff by extension and review each group with its own prompt
     from .llm.base import ReviewResult as _ReviewResult
     ext_groups = split_diff_by_extension(diff)
@@ -146,11 +152,35 @@ def _review(ctx: click.Context) -> None:
         if not ext_diff.strip():
             continue
 
-        # Truncate per-group diff
-        lines = ext_diff.split("\n")
+        # Build full file context for this extension group
+        import os as _os
+        prompt_name = _EXT_TO_PROMPT.get(ext, ext)
+        group_files = [
+            p for p in staged_paths
+            if _os.path.splitext(p)[1].lstrip(".").lower() in
+            [k for k, v in _EXT_TO_PROMPT.items() if v == prompt_name] or
+            _os.path.splitext(p)[1].lstrip(".").lower() == ext
+        ]
+        file_context_parts = []
+        for fpath in group_files:
+            try:
+                content = get_staged_file_content(fpath)
+                if content:
+                    file_context_parts.append(f"=== {fpath} ===\n{content}")
+            except GitError:
+                pass
+
+        # Combine diff + full file context
+        combined = ext_diff
+        if file_context_parts:
+            file_context = "\n\n".join(file_context_parts)
+            combined = f"{ext_diff}\n\n--- FULL FILE CONTEXT (for reference, changes are in the diff above) ---\n\n{file_context}"
+
+        # Truncate combined content
+        lines = combined.split("\n")
         if len(lines) > max_lines:
-            console.print(f"[yellow]Warning: .{ext or '?'} diff truncated to {max_lines} lines (original: {len(lines)} lines)[/]")
-            ext_diff = "\n".join(lines[:max_lines]) + f"\n... (truncated: showing first {max_lines} of {len(lines)} lines)"
+            console.print(f"[yellow]Warning: .{ext or '?'} content truncated to {max_lines} lines (original: {len(lines)} lines)[/]")
+            combined = "\n".join(lines[:max_lines]) + f"\n... (truncated: showing first {max_lines} of {len(lines)} lines)"
 
         prompt = _load_review_prompt(config, ext)
         # Append custom rules if configured
@@ -161,10 +191,10 @@ def _review(ctx: click.Context) -> None:
             )
 
         ext_label = f".{ext}" if ext else "other"
-        console.print(f"[dim]Reviewing {ext_label} files...[/]")
+        console.print(f"[dim]Reviewing {ext_label} files ({len(group_files)} file(s), full context)...[/]")
 
         try:
-            result = reviewer.review_diff(ext_diff, prompt_override=prompt)
+            result = reviewer.review_diff(combined, prompt_override=prompt)
             all_issues.extend(result.issues)
         except ProviderError as e:
             if graceful:
